@@ -13,7 +13,7 @@ import {
   UserServiceBindings,
 } from '@loopback/authentication-jwt';
 import {inject} from '@loopback/core';
-import {model, property, repository} from '@loopback/repository';
+import {Entity, model, property, repository} from '@loopback/repository';
 import {
   get,
   getModelSchemaRef,
@@ -24,9 +24,15 @@ import {
 import {SecurityBindings, securityId, UserProfile} from '@loopback/security';
 import {genSalt, hash} from 'bcryptjs';
 import _ from 'lodash';
+import {ProfileRepository} from '../repositories';
 
 @model()
-export class NewUserRequest extends User {
+export class NewUserRequest extends Entity {
+  @property({
+    type: 'string',
+    required: true,
+  })
+  email: string;
   @property({
     type: 'string',
     required: true,
@@ -57,6 +63,20 @@ export const CredentialsRequestBody = {
   },
 };
 
+const UserProfileSchema: SchemaObject = {
+  type: 'object',
+  properties: {
+    username: {
+      type: 'string'
+    },
+    email: {
+      type: 'string',
+      format: 'email',
+    },
+  },
+};
+
+
 export class UserController {
   constructor(
     @inject(TokenServiceBindings.TOKEN_SERVICE)
@@ -66,6 +86,8 @@ export class UserController {
     @inject(SecurityBindings.USER, {optional: true})
     public user: UserProfile,
     @repository(UserRepository) protected userRepository: UserRepository,
+
+    @repository(ProfileRepository) protected profileRepository: ProfileRepository,
   ) { }
 
   @post('/auth/login', {
@@ -92,6 +114,7 @@ export class UserController {
   ): Promise<{token: string}> {
     // ensure the user exists, and the password is correct
     const user = await this.userService.verifyCredentials(credentials);
+
     // convert a User object into a UserProfile object (reduced set of properties)
     const userProfile = this.userService.convertToUserProfile(user);
 
@@ -100,26 +123,31 @@ export class UserController {
     return {token};
   }
 
+
   @authenticate('jwt')
-  @get('/auth/whoAmI', {
+  @get('/auth/me', {
     responses: {
       '200': {
         description: 'Return current user',
         content: {
           'application/json': {
-            schema: {
-              type: 'string',
-            },
+            schema: UserProfileSchema,
           },
         },
       },
     },
   })
-  async whoAmI(
+  async me(
     @inject(SecurityBindings.USER)
     currentUserProfile: UserProfile,
-  ): Promise<string> {
-    return currentUserProfile[securityId];
+  ): Promise<UserProfile | null> {
+    return this.profileRepository.findById(currentUserProfile[securityId] || '')
+      .then((user: User) => ({
+        username: user.username,
+        email: user.email,
+        [securityId]: currentUserProfile[securityId]
+      }))
+      .catch((e) => null);
   }
 
   @post('/auth/signup', {
