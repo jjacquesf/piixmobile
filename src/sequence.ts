@@ -26,16 +26,24 @@ export class MySequence implements SequenceHandler {
   async handle(context: RequestContext): Promise<void> {
     try {
       const {request, response} = context;
-      const route = this.findRoute(request);
-      // console.log('route', route.path);
-      // - enable jwt auth -
-      // call authentication action
-      await this.authenticateRequest(request);
-      const args = await this.parseParams(request, route);
-      // console.log('args', args);
-      const result = await this.invoke(route, args);
-      // console.log('result', result);
-      this.send(response, result);
+
+      response.header('Access-Control-Allow-Origin', '*');
+      response.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+      if (request.method == 'OPTIONS') {
+        response.status(200)
+        this.send(response, 'ok');
+      } else {
+        const route = this.findRoute(request);
+        // console.log('route', route.path);
+        // - enable jwt auth -
+        // call authentication action
+        await this.authenticateRequest(request);
+        const args = await this.parseParams(request, route);
+        // console.log('args', args);
+        const result = await this.invoke(route, args);
+        // console.log('result', result);
+        this.send(response, result);
+      }
     } catch (err) {
       // if error is coming from the JWT authentication extension
       // make the statusCode 401
