@@ -24,6 +24,7 @@ import {
 import {SecurityBindings, securityId, UserProfile} from '@loopback/security';
 import {genSalt, hash} from 'bcryptjs';
 import _ from 'lodash';
+import {Profile} from '../models/profile.model';
 import {ProfileRepository} from '../repositories';
 
 @model()
@@ -66,7 +67,13 @@ export const CredentialsRequestBody = {
 const UserProfileSchema: SchemaObject = {
   type: 'object',
   properties: {
-    username: {
+    firstName: {
+      type: 'string'
+    },
+    lastName: {
+      type: 'string'
+    },
+    fullName: {
       type: 'string'
     },
     email: {
@@ -131,7 +138,7 @@ export class UserController {
         description: 'Return current user',
         content: {
           'application/json': {
-            schema: UserProfileSchema,
+            schema: Profile,
           },
         },
       },
@@ -140,13 +147,18 @@ export class UserController {
   async me(
     @inject(SecurityBindings.USER)
     currentUserProfile: UserProfile,
-  ): Promise<UserProfile | null> {
-    return this.profileRepository.findById(currentUserProfile[securityId] || '')
-      .then((user: User) => ({
-        username: user.username,
-        email: user.email,
-        [securityId]: currentUserProfile[securityId]
-      }))
+  ): Promise<Profile | null> {
+    return this.profileRepository.find({where: {userId: currentUserProfile[securityId]}})
+      .then((profiles: Profile[]) => {
+
+        if (profiles.length) {
+          const [profile] = profiles;
+          return profile;
+        }
+
+        return null;
+
+      })
       .catch((e) => null);
   }
 
