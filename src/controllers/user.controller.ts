@@ -25,20 +25,47 @@ import {SecurityBindings, securityId, UserProfile} from '@loopback/security';
 import {genSalt, hash} from 'bcryptjs';
 import _ from 'lodash';
 import {Profile} from '../models/profile.model';
-import {ProfileRepository} from '../repositories';
+import {OrganizationRepository, ProfileRepository, RoleRepository} from '../repositories';
+import {ProfileRoleRepository} from '../repositories/profile_role.repository';
 
 @model()
 export class NewUserRequest extends Entity {
+  @property({
+    type: 'number',
+    required: true,
+  })
+  organizationId: number;
+
+  @property({
+    type: 'number',
+    required: true,
+  })
+  roleId: number;
+
   @property({
     type: 'string',
     required: true,
   })
   email: string;
+
   @property({
     type: 'string',
     required: true,
   })
   password: string;
+
+  @property({
+    type: 'string',
+    required: true,
+  })
+  firstName: string;
+
+  @property({
+    type: 'string',
+    required: true,
+  })
+  lastName: string;
+
 }
 
 const CredentialsSchema: SchemaObject = {
@@ -64,26 +91,6 @@ export const CredentialsRequestBody = {
   },
 };
 
-const UserProfileSchema: SchemaObject = {
-  type: 'object',
-  properties: {
-    firstName: {
-      type: 'string'
-    },
-    lastName: {
-      type: 'string'
-    },
-    fullName: {
-      type: 'string'
-    },
-    email: {
-      type: 'string',
-      format: 'email',
-    },
-  },
-};
-
-
 export class UserController {
   constructor(
     @inject(TokenServiceBindings.TOKEN_SERVICE)
@@ -93,8 +100,10 @@ export class UserController {
     @inject(SecurityBindings.USER, {optional: true})
     public user: UserProfile,
     @repository(UserRepository) protected userRepository: UserRepository,
-
     @repository(ProfileRepository) protected profileRepository: ProfileRepository,
+    @repository(OrganizationRepository) protected organizationRepository: OrganizationRepository,
+    @repository(RoleRepository) protected roleRepository: RoleRepository,
+    @repository(ProfileRoleRepository) protected profileRoleRepository: ProfileRoleRepository,
   ) { }
 
   @post('/auth/login', {
@@ -151,15 +160,20 @@ export class UserController {
     return this.profileRepository.find({where: {userId: currentUserProfile[securityId]}})
       .then((profiles: Profile[]) => {
 
+        console.log(profiles);
+
         if (profiles.length) {
           const [profile] = profiles;
           return profile;
         }
 
-        return null;
+        throw new Error('Unable to get profile');
 
       })
-      .catch((e) => null);
+      .catch((e) => {
+        console.log(e);
+        throw e;
+      });
   }
 
   @post('/auth/signup', {
@@ -188,12 +202,30 @@ export class UserController {
     })
     newUserRequest: NewUserRequest,
   ): Promise<User> {
+
+    const organization = await this.organizationRepository.findById(newUserRequest.organizationId);
+    const role = await this.roleRepository.findById(newUserRequest.roleId);
+
     const password = await hash(newUserRequest.password, await genSalt());
     const savedUser = await this.userRepository.create(
-      _.omit(newUserRequest, 'password'),
+      _.omit(newUserRequest, ['password', 'organizationId', 'roleId', 'firstName', 'lastName']),
     );
 
     await this.userRepository.userCredentials(savedUser.id).create({password});
+
+    const profile = await this.profileRepository.create({
+      userId: savedUser.id,
+      firstName: newUserRequest.firstName,
+      lastName: newUserRequest.lastName,
+      status: 1,
+      organizationId: organization.id
+    });
+
+    const profileRole = await this.profileRoleRepository.create({
+      profileId: profile.id,
+      roleId: role.id,
+    });
+
 
     return savedUser;
   }

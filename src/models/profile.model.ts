@@ -27,6 +27,17 @@ export class Profile extends Entity {
   userId: string;
 
   @property({
+    type: 'number',
+    jsonSchema: {nullable: false},
+    precision: 10,
+    scale: 0,
+    generated: 1,
+    id: 1,
+    mysql: {columnName: 'organization_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'N', generated: 0},
+  })
+  organizationId: number;
+
+  @property({
     type: 'string',
     required: true,
     jsonSchema: {nullable: false},
