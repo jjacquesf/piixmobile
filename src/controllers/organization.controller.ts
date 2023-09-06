@@ -1,3 +1,4 @@
+import {authenticate} from '@loopback/authentication';
 import {
   Count,
   CountSchema,
@@ -10,7 +11,7 @@ import {del, get, getModelSchemaRef, param, patch, post, put, requestBody, respo
 import {Organization, OrganizationPayload} from '../models';
 import {OrganizationRepository} from '../repositories';
 
-// @authenticate('jwt')
+@authenticate('jwt')
 export class OrganizationController {
   constructor(
     @repository(OrganizationRepository)
