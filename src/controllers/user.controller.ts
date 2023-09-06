@@ -159,9 +159,6 @@ export class UserController {
   ): Promise<Profile | null> {
     return this.profileRepository.find({where: {userId: currentUserProfile[securityId]}})
       .then((profiles: Profile[]) => {
-
-        console.log(profiles);
-
         if (profiles.length) {
           const [profile] = profiles;
           return profile;
@@ -171,7 +168,6 @@ export class UserController {
 
       })
       .catch((e) => {
-        console.log(e);
         throw e;
       });
   }
