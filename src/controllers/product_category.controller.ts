@@ -1,3 +1,4 @@
+import {authenticate} from '@loopback/authentication';
 import {inject} from '@loopback/core';
 import {
   Filter,
@@ -7,7 +8,7 @@ import {Request, Response, RestBindings, del, get, getModelSchemaRef, param, pat
 import {Organization, ProductCategory} from '../models';
 import {OrganizationRepository, ProductCategoryRepository} from '../repositories';
 
-// @authenticate('jwt')
+@authenticate('jwt')
 export class ProductCategoryController {
   constructor(
     @inject(RestBindings.Http.REQUEST) private request: Request,
@@ -183,16 +184,16 @@ export class ProductCategoryController {
     const model = new ProductCategory({
       id: cat.id,
       organizationId: org.id,
-      name: payload.name != undefined ? payload.name : cat.name,
-      status: payload.status != undefined ? payload.status : cat.status,
+      name: payload.name,
+      status: payload.status,
       level,
       parentId
     });
 
-    await this.productCategoryRepository.replaceById(id, model);
+    await this.productCategoryRepository.replaceById(cat.id, model);
 
     this.response.status(201);
-    return await this.productCategoryRepository.findById(id, orgFiter);
+    return await this.productCategoryRepository.findById(cat.id, orgFiter);
   }
 
   @del('/organizations/{organizationId}/catalog/categories/{id}')

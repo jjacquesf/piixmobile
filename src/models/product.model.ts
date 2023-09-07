@@ -18,27 +18,24 @@ export class Product extends Entity {
 
   @property({
     type: 'string',
-    required: true,
     jsonSchema: {nullable: false},
     length: 100,
     generated: 0,
     mysql: {columnName: 'brand', dataType: 'varchar', dataLength: 50, dataPrecision: null, dataScale: null, nullable: 'Y', generated: 0},
   })
-  brand: string;
+  brand?: string;
 
   @property({
     type: 'string',
-    required: true,
     jsonSchema: {nullable: false},
     length: 100,
     generated: 0,
     mysql: {columnName: 'color', dataType: 'varchar', dataLength: 50, dataPrecision: null, dataScale: null, nullable: 'Y', generated: 0},
   })
-  color: string;
+  color?: string;
 
   @property({
     type: 'date',
-    required: true,
     jsonSchema: {nullable: false},
     generated: 0,
     mysql: {columnName: 'created', dataType: 'timestamp', dataLength: null, dataPrecision: null, dataScale: null, nullable: 'N', generated: 0},
@@ -67,16 +64,16 @@ export class Product extends Entity {
 
   @property({
     type: 'string',
-    required: true,
     jsonSchema: {nullable: false},
     length: 100,
     generated: 0,
     mysql: {columnName: 'model', dataType: 'varchar', dataLength: 50, dataPrecision: null, dataScale: null, nullable: 'N', generated: 0},
   })
-  model: string;
+  model?: string;
 
   @property({
     type: 'number',
+    required: true,
     jsonSchema: {nullable: false},
     precision: 10,
     scale: 0,
@@ -99,13 +96,12 @@ export class Product extends Entity {
 
   @property({
     type: 'string',
-    required: true,
     jsonSchema: {nullable: false},
     length: 100,
     generated: 0,
     mysql: {columnName: 'sku', dataType: 'varchar', dataLength: 100, dataPrecision: null, dataScale: null, nullable: 'Y', generated: 0},
   })
-  sku: string;
+  sku?: string;
 
   @property({
     type: 'number',
@@ -120,7 +116,6 @@ export class Product extends Entity {
 
   @property({
     type: 'date',
-    required: true,
     jsonSchema: {nullable: false},
     generated: 0,
     mysql: {columnName: 'updated', dataType: 'timestamp', dataLength: null, dataPrecision: null, dataScale: null, nullable: 'N', generated: 0},

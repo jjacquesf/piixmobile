@@ -1,7 +1,7 @@
 import {Entity, model, property} from '@loopback/repository';
 
 @model({
-  settings: {idInjection: false, mysql: {table: 'product'}}
+  settings: {idInjection: false, mysql: {table: 'product_category'}}
 })
 export class ProductCategory extends Entity {
 
@@ -28,7 +28,6 @@ export class ProductCategory extends Entity {
 
   @property({
     type: 'date',
-    required: true,
     jsonSchema: {nullable: false},
     generated: 0,
     mysql: {columnName: 'created', dataType: 'timestamp', dataLength: null, dataPrecision: null, dataScale: null, nullable: 'N', generated: 0},
@@ -37,7 +36,6 @@ export class ProductCategory extends Entity {
 
   @property({
     type: 'date',
-    required: true,
     jsonSchema: {nullable: false},
     generated: 0,
     mysql: {columnName: 'updated', dataType: 'timestamp', dataLength: null, dataPrecision: null, dataScale: null, nullable: 'N', generated: 0},
