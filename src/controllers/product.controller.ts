@@ -1,3 +1,4 @@
+import {authenticate} from '@loopback/authentication';
 import {inject} from '@loopback/core';
 import {
   Filter,
@@ -7,7 +8,7 @@ import {Request, Response, RestBindings, del, get, getModelSchemaRef, param, pat
 import {Organization, Product} from '../models';
 import {OrganizationRepository, ProductCategoryRepository, ProductRepository} from '../repositories';
 
-// @authenticate('jwt')
+@authenticate('jwt')
 export class ProductController {
   constructor(
     @inject(RestBindings.Http.REQUEST) private request: Request,
