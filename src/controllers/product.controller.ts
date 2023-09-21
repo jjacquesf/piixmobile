@@ -1,12 +1,13 @@
 import {authenticate} from '@loopback/authentication';
-import {inject} from '@loopback/core';
+import {inject, service} from '@loopback/core';
 import {
   Filter,
   repository
 } from '@loopback/repository';
 import {Request, Response, RestBindings, del, get, getModelSchemaRef, param, patch, post, put, requestBody, response} from '@loopback/rest';
-import {Organization, Product} from '../models';
-import {OrganizationRepository, ProductCategoryRepository, ProductRepository} from '../repositories';
+import {Media, Organization, Product} from '../models';
+import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository} from '../repositories';
+import {S3Service} from '../services';
 
 @authenticate('jwt')
 export class ProductController {
@@ -19,6 +20,9 @@ export class ProductController {
     public productRepository: ProductRepository,
     @repository(ProductCategoryRepository)
     public productCategoryRepository: ProductCategoryRepository,
+    @repository(MediaRepository)
+    public mediaRepository: MediaRepository,
+    @service(S3Service) private s3: S3Service
   ) { }
 
   private getOrganizationFilter = (org: Organization): Filter<Product> => {
@@ -30,6 +34,18 @@ export class ProductController {
 
     return filter;
   }
+
+  private getMediaFilter = (product: Product): Filter<Media> => {
+    const filter: Filter<Media> = {
+      where: {
+        entityId: product.id,
+        entityType: 'Product'
+      }
+    };
+
+    return filter;
+  }
+
 
   @get('/organizations/{organizationId}/catalog/products')
   @response(200, {
@@ -59,11 +75,29 @@ export class ProductController {
   async findById(
     @param.path.number('organizationId') organizationId: number,
     @param.path.number('id') id: number,
-  ): Promise<Product> {
+  ): Promise<any> {
     const org = await this.organizationRepository.findById(organizationId);
     const orgFiter = this.getOrganizationFilter(org);
 
-    return await this.productRepository.findById(id, orgFiter);
+
+    const model = await this.productRepository.findById(id, orgFiter);
+    const mediaFilter = this.getMediaFilter(model);
+
+    const mediaFiles = await this.mediaRepository.find(mediaFilter);
+    const files: any = [];
+    for (let i = 0; i < mediaFiles.length; i++) {
+      files.push(
+        {
+          ...mediaFiles[0].toJSON(),
+          url: await this.s3.signedUrl(mediaFiles[i].path)
+        }
+      )
+    }
+
+    return {
+      ...model.toJSON(),
+      files
+    };
   }
 
   @post('/organizations/{organizationId}/catalog/products')

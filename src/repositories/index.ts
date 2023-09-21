@@ -1,3 +1,4 @@
+export * from './media.repository';
 export * from './organization.repository';
 export * from './product.repository';
 export * from './product_category.repository';
