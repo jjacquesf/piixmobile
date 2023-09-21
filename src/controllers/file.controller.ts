@@ -3,6 +3,7 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
+import {authenticate} from '@loopback/authentication';
 import {inject, service, uuid} from '@loopback/core';
 import {Filter, repository} from '@loopback/repository';
 import {
