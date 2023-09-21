@@ -9,6 +9,16 @@ import {Media, Organization, Product} from '../models';
 import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository} from '../repositories';
 import {S3Service} from '../services';
 
+interface IProductMedia {
+  entityId: number;
+  entityType: string;
+  mediaType: number;
+  order: number;
+  path: string;
+  url: string;
+  id: number;
+}
+
 @authenticate('jwt')
 export class ProductController {
   constructor(
@@ -35,8 +45,10 @@ export class ProductController {
     return filter;
   }
 
-  private getMediaFilter = (product: Product): Filter<Media> => {
+  private getMediaFilter = (product: Product, limit: number | undefined = undefined): Filter<Media> => {
     const filter: Filter<Media> = {
+      limit: limit,
+      order: ['order ASC'],
       where: {
         entityId: product.id,
         entityType: 'Product'
@@ -46,6 +58,23 @@ export class ProductController {
     return filter;
   }
 
+  private getProductMedia = async (product: Product, limit: number | undefined = undefined): Promise<IProductMedia[]> => {
+
+    const filter: Filter<Media> = this.getMediaFilter(product, limit);
+    const mediaFiles = await this.mediaRepository.find(filter);
+
+    const files: any = [];
+    for (let i = 0; i < mediaFiles.length; i++) {
+      files.push(
+        {
+          ...mediaFiles[0].toJSON(),
+          url: await this.s3.signedUrl(mediaFiles[i].path)
+        } as IProductMedia
+      )
+    }
+
+    return files;
+  }
 
   @get('/organizations/{organizationId}/catalog/products')
   @response(200, {
@@ -58,9 +87,18 @@ export class ProductController {
   })
   async find(
     @param.path.number('organizationId') organizationId: number
-  ): Promise<Product[]> {
+  ): Promise<any[]> {
     const org = await this.organizationRepository.findById(organizationId);
-    return this.productRepository.find({where: {organizationId: org.id}});
+    const models = await this.productRepository.find({where: {organizationId: org.id}});
+    const data: any[] = [];
+    for (let i = 0; i < models.length; i++) {
+      data.push({
+        ...models[i].toJSON(),
+        files: await this.getProductMedia(models[i], 1)
+      })
+    }
+
+    return data;
   }
 
   @get('/organizations/{organizationId}/catalog/products/{id}')
@@ -81,22 +119,10 @@ export class ProductController {
 
 
     const model = await this.productRepository.findById(id, orgFiter);
-    const mediaFilter = this.getMediaFilter(model);
-
-    const mediaFiles = await this.mediaRepository.find(mediaFilter);
-    const files: any = [];
-    for (let i = 0; i < mediaFiles.length; i++) {
-      files.push(
-        {
-          ...mediaFiles[0].toJSON(),
-          url: await this.s3.signedUrl(mediaFiles[i].path)
-        }
-      )
-    }
 
     return {
       ...model.toJSON(),
-      files
+      files: await this.getProductMedia(model)
     };
   }
 
