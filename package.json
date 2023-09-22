@@ -36,6 +36,7 @@
     "start:watch": "tsc-watch --target es2017 --outDir ./dist --onSuccess \"node .\"",
     "clean": "lb-clean dist *.tsbuildinfo .eslintcache",
     "rebuild": "npm run clean && npm run build",
+    "preinstall": "npm cache clear --force",
     "postinstall": "npm run build",
     "start:prod": "node dist/index.js"
   },
