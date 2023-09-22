@@ -174,7 +174,6 @@ export class FileController {
   ) {
 
     const file = await this.mediaRepository.findOne(this.getMediaFilter(fileName))
-    console.log({fileName, file})
     if (file != null) {
       const url = await this.s3.signedUrl(fileName);
       return response.send({url});
@@ -199,6 +198,4 @@ export class FileController {
 
     return response.status(404).send('File not found');
   }
-
-
 }

@@ -1,7 +1,11 @@
 import {authenticate} from '@loopback/authentication';
 import {inject, service} from '@loopback/core';
 import {
+  Entity,
   Filter,
+  Where,
+  model,
+  property,
   repository
 } from '@loopback/repository';
 import {Request, Response, RestBindings, del, get, getModelSchemaRef, param, patch, post, put, requestBody, response} from '@loopback/rest';
@@ -17,6 +21,16 @@ interface IProductMedia {
   path: string;
   url: string;
   id: number;
+}
+
+@model()
+export class Sort extends Entity {
+  @property({
+    type: 'array',
+    itemType: 'number',
+    required: true,
+  })
+  ids: number[];
 }
 
 @authenticate('jwt')
@@ -59,7 +73,6 @@ export class ProductController {
   }
 
   private getProductMedia = async (product: Product, limit: number | undefined = undefined): Promise<IProductMedia[]> => {
-
     const filter: Filter<Media> = this.getMediaFilter(product, limit);
     const mediaFiles = await this.mediaRepository.find(filter);
 
@@ -67,7 +80,7 @@ export class ProductController {
     for (let i = 0; i < mediaFiles.length; i++) {
       files.push(
         {
-          ...mediaFiles[0].toJSON(),
+          ...mediaFiles[i].toJSON(),
           url: await this.s3.signedUrl(mediaFiles[i].path)
         } as IProductMedia
       )
@@ -249,6 +262,39 @@ export class ProductController {
 
     this.response.status(201);
     return await this.productRepository.findById(prod.id, orgFiter);
+  }
+
+  @patch('/organizations/{organizationId}/catalog/products/{id}/media')
+  @response(204, {
+    description: 'Sort product media',
+  })
+  async sortMedia(
+    @param.path.number('organizationId') organizationId: number,
+    @param.path.number('id') id: number,
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(Sort, {partial: false}),
+        },
+      },
+    }) sort: Sort
+  ): Promise<number> {
+    const org = await this.organizationRepository.findById(organizationId);
+    const filter = this.getOrganizationFilter(org);
+    const prod = await this.productRepository.findById(id, filter);
+    const mediaFilter = this.getMediaFilter(prod);
+    let count = 0;
+    for (let i = 0; i < sort.ids.length; i++) {
+      const where: Where<Media> = {
+        ...mediaFilter.where,
+        id: sort.ids[i]
+      };
+
+      const updated = await this.mediaRepository.updateAll({order: i}, where)
+      count += updated.count;
+    }
+
+    return count;
   }
 
   @del('/organizations/{organizationId}/catalog/products/{id}')
