@@ -6,3 +6,6 @@
 import {RequestHandler} from 'express-serve-static-core';
 
 export type FileUploadHandler = RequestHandler;
+
+
+export type UploadedFiles = {[fieldname: string]: globalThis.Express.Multer.File[];} | globalThis.Express.Multer.File[];

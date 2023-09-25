@@ -22,20 +22,18 @@ import {FILE_UPLOAD_SERVICE} from '../keys';
 import {Media} from '../models';
 import {MediaRepository, ProductRepository} from '../repositories';
 import {S3Service} from '../services';
-import {FileUploadHandler} from '../types';
+import {FileUploadHandler, UploadedFiles} from '../types';
 
 enum EntityType {
   Product = "Product"
 }
 
-interface IFileUploadEntity {
-  entityType: string;
+interface IMediaUploadEntity {
+  entityType: EntityType;
   entityId: number;
 }
 
-type UploadedFiles = {[fieldname: string]: globalThis.Express.Multer.File[];} | globalThis.Express.Multer.File[];
-
-const schemaFileUploadEntity: JSONSchemaType<IFileUploadEntity> = {
+const schemaFileUploadEntity: JSONSchemaType<IMediaUploadEntity> = {
   type: "object",
   properties: {
     entityType: {
@@ -61,7 +59,7 @@ export class FileController {
     @service(S3Service) private s3: S3Service,
   ) { }
 
-  private getEntityModel(entity: IFileUploadEntity) {
+  private getEntityModel(entity: IMediaUploadEntity) {
     switch (entity.entityType) {
       case EntityType.Product:
         return this.productRepository.findById(entity.entityId);
@@ -113,7 +111,7 @@ export class FileController {
           const entity = {
             ...request.body,
             entityId: parseInt(request.body?.entityId)
-          } as IFileUploadEntity;
+          } as IMediaUploadEntity;
 
           if (!isValid(entity)) {return response.status(400).send('Invalid owner entity');}
 
@@ -122,8 +120,6 @@ export class FileController {
 
             const uploadedFiles: UploadedFiles = request.files || [];
             const path = `${entity.entityType}/${entity.entityId}`;
-
-            // const paths = await FileUploadController.storeFiles(this.s3, path, uploadedFiles);
 
             const paths: string[] = [];
             if (Array.isArray(uploadedFiles)) {
