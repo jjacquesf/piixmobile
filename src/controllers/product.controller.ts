@@ -23,6 +23,21 @@ interface IProductMedia {
   id: number;
 }
 
+interface IProduct {
+  id: number;
+  brand: string;
+  color: string | null;
+  externalName: string;
+  internalName: string;
+  model: string;
+  organizationId: number;
+  productCategoryId: number;
+  sku: string;
+  status: number;
+  updated: string | null;
+  files: IProductMedia[]
+}
+
 @model()
 export class Sort extends Entity {
   @property({
@@ -100,15 +115,15 @@ export class ProductController {
   })
   async find(
     @param.path.number('organizationId') organizationId: number
-  ): Promise<any[]> {
+  ): Promise<IProduct[]> {
     const org = await this.organizationRepository.findById(organizationId);
     const models = await this.productRepository.find({where: {organizationId: org.id}});
-    const data: any[] = [];
+    const data: IProduct[] = [];
     for (let i = 0; i < models.length; i++) {
       data.push({
         ...models[i].toJSON(),
         files: await this.getProductMedia(models[i], 1)
-      })
+      } as IProduct)
     }
 
     return data;
@@ -126,7 +141,7 @@ export class ProductController {
   async findById(
     @param.path.number('organizationId') organizationId: number,
     @param.path.number('id') id: number,
-  ): Promise<any> {
+  ): Promise<IProduct> {
     const org = await this.organizationRepository.findById(organizationId);
     const orgFiter = this.getOrganizationFilter(org);
 
@@ -136,7 +151,7 @@ export class ProductController {
     return {
       ...model.toJSON(),
       files: await this.getProductMedia(model)
-    };
+    } as IProduct;
   }
 
   @post('/organizations/{organizationId}/catalog/products')
@@ -153,7 +168,7 @@ export class ProductController {
       },
     })
     payload: Product,
-  ): Promise<Product> {
+  ): Promise<IProduct> {
     const org = await this.organizationRepository.findById(organizationId);
 
     const orgFiter = this.getOrganizationFilter(org);
@@ -172,7 +187,11 @@ export class ProductController {
     }
 
     this.response.status(201);
-    return await this.productRepository.create(model);
+    const prod = await this.productRepository.create(model);
+    return {
+      ...prod.toJSON(),
+      files: [] as IProductMedia[]
+    } as IProduct;
   }
 
   @patch('/organizations/{organizationId}/catalog/products/{id}')
@@ -190,11 +209,11 @@ export class ProductController {
       },
     })
     payload: Product,
-  ): Promise<Product> {
+  ): Promise<IProduct> {
     const org = await this.organizationRepository.findById(organizationId);
 
     const orgFiter = this.getOrganizationFilter(org);
-    const prod = await this.productRepository.findById(id, orgFiter);
+    let prod = await this.productRepository.findById(id, orgFiter);
 
     let productCategoryId = prod.productCategoryId;
     if (payload.productCategoryId) {
@@ -219,7 +238,11 @@ export class ProductController {
     await this.productRepository.updateById(prod.id, model);
 
     this.response.status(201);
-    return await this.productRepository.findById(id, orgFiter);
+    prod = await this.productRepository.findById(id, orgFiter);
+    return {
+      ...prod.toJSON(),
+      files: await this.getProductMedia(prod, 1)
+    } as IProduct;
   }
 
   @put('/organizations/{organizationId}/catalog/products/{id}')
@@ -237,11 +260,11 @@ export class ProductController {
       },
     })
     payload: Product,
-  ): Promise<Product> {
+  ): Promise<IProduct> {
     const org = await this.organizationRepository.findById(organizationId);
 
     const orgFiter = this.getOrganizationFilter(org);
-    const prod = await this.productRepository.findById(id, orgFiter);
+    let prod = await this.productRepository.findById(id, orgFiter);
 
     const cat = await this.productCategoryRepository.findById(payload.productCategoryId, orgFiter);
 
@@ -261,7 +284,12 @@ export class ProductController {
     await this.productRepository.replaceById(prod.id, model);
 
     this.response.status(201);
-    return await this.productRepository.findById(prod.id, orgFiter);
+    prod = await this.productRepository.findById(prod.id, orgFiter);
+
+    return {
+      ...prod.toJSON(),
+      files: await this.getProductMedia(prod, 1)
+    } as IProduct;
   }
 
   @patch('/organizations/{organizationId}/catalog/products/{id}/media')
