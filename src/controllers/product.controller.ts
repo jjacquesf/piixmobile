@@ -1,5 +1,5 @@
 import {authenticate} from '@loopback/authentication';
-import {inject, service} from '@loopback/core';
+import {inject} from '@loopback/core';
 import {
   Entity,
   Where,
@@ -11,7 +11,6 @@ import {Request, Response, RestBindings, del, get, getModelSchemaRef, param, pat
 import {Media, Product} from '../models';
 import {IProduct} from '../models/interfaces';
 import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository} from '../repositories';
-import {S3Service} from '../services';
 
 
 @model()
@@ -36,8 +35,7 @@ export class ProductController {
     @repository(ProductCategoryRepository)
     public productCategoryRepository: ProductCategoryRepository,
     @repository(MediaRepository)
-    public mediaRepository: MediaRepository,
-    @service(S3Service) private s3: S3Service
+    public mediaRepository: MediaRepository
   ) { }
 
 
