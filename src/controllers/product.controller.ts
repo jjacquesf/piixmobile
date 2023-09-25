@@ -2,41 +2,17 @@ import {authenticate} from '@loopback/authentication';
 import {inject, service} from '@loopback/core';
 import {
   Entity,
-  Filter,
   Where,
   model,
   property,
   repository
 } from '@loopback/repository';
 import {Request, Response, RestBindings, del, get, getModelSchemaRef, param, patch, post, put, requestBody, response} from '@loopback/rest';
-import {Media, Organization, Product} from '../models';
+import {Media, Product} from '../models';
+import {IProduct} from '../models/interfaces';
 import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository} from '../repositories';
 import {S3Service} from '../services';
 
-interface IProductMedia {
-  entityId: number;
-  entityType: string;
-  mediaType: number;
-  order: number;
-  path: string;
-  url: string;
-  id: number;
-}
-
-interface IProduct {
-  id: number;
-  brand: string;
-  color: string | null;
-  externalName: string;
-  internalName: string;
-  model: string;
-  organizationId: number;
-  productCategoryId: number;
-  sku: string;
-  status: number;
-  updated: string | null;
-  files: IProductMedia[]
-}
 
 @model()
 export class Sort extends Entity {
@@ -64,45 +40,6 @@ export class ProductController {
     @service(S3Service) private s3: S3Service
   ) { }
 
-  private getOrganizationFilter = (org: Organization): Filter<Product> => {
-    const filter: Filter<Product> = {
-      where: {
-        organizationId: org.id
-      }
-    };
-
-    return filter;
-  }
-
-  private getMediaFilter = (product: Product, limit: number | undefined = undefined): Filter<Media> => {
-    const filter: Filter<Media> = {
-      limit: limit,
-      order: ['order ASC'],
-      where: {
-        entityId: product.id,
-        entityType: 'Product'
-      }
-    };
-
-    return filter;
-  }
-
-  private getProductMedia = async (product: Product, limit: number | undefined = undefined): Promise<IProductMedia[]> => {
-    const filter: Filter<Media> = this.getMediaFilter(product, limit);
-    const mediaFiles = await this.mediaRepository.find(filter);
-
-    const files: any = [];
-    for (let i = 0; i < mediaFiles.length; i++) {
-      files.push(
-        {
-          ...mediaFiles[i].toJSON(),
-          url: await this.s3.signedUrl(mediaFiles[i].path)
-        } as IProductMedia
-      )
-    }
-
-    return files;
-  }
 
   @get('/organizations/{organizationId}/catalog/products')
   @response(200, {
@@ -120,10 +57,7 @@ export class ProductController {
     const models = await this.productRepository.find({where: {organizationId: org.id}});
     const data: IProduct[] = [];
     for (let i = 0; i < models.length; i++) {
-      data.push({
-        ...models[i].toJSON(),
-        files: await this.getProductMedia(models[i], 1)
-      } as IProduct)
+      data.push(await this.productRepository.toJSON(models[i], false))
     }
 
     return data;
@@ -143,15 +77,10 @@ export class ProductController {
     @param.path.number('id') id: number,
   ): Promise<IProduct> {
     const org = await this.organizationRepository.findById(organizationId);
-    const orgFiter = this.getOrganizationFilter(org);
-
-
+    const orgFiter = this.productRepository.getOrganizationFilter(org);
     const model = await this.productRepository.findById(id, orgFiter);
 
-    return {
-      ...model.toJSON(),
-      files: await this.getProductMedia(model)
-    } as IProduct;
+    return await this.productRepository.toJSON(model);
   }
 
   @post('/organizations/{organizationId}/catalog/products')
@@ -171,7 +100,7 @@ export class ProductController {
   ): Promise<IProduct> {
     const org = await this.organizationRepository.findById(organizationId);
 
-    const orgFiter = this.getOrganizationFilter(org);
+    const orgFiter = this.productRepository.getOrganizationFilter(org);
     const cat = await this.productCategoryRepository.findById(payload.productCategoryId, orgFiter);
 
     const model = {
@@ -188,10 +117,7 @@ export class ProductController {
 
     this.response.status(201);
     const prod = await this.productRepository.create(model);
-    return {
-      ...prod.toJSON(),
-      files: [] as IProductMedia[]
-    } as IProduct;
+    return await this.productRepository.toJSON(prod);
   }
 
   @patch('/organizations/{organizationId}/catalog/products/{id}')
@@ -212,7 +138,7 @@ export class ProductController {
   ): Promise<IProduct> {
     const org = await this.organizationRepository.findById(organizationId);
 
-    const orgFiter = this.getOrganizationFilter(org);
+    const orgFiter = this.productRepository.getOrganizationFilter(org);
     let prod = await this.productRepository.findById(id, orgFiter);
 
     let productCategoryId = prod.productCategoryId;
@@ -239,10 +165,8 @@ export class ProductController {
 
     this.response.status(201);
     prod = await this.productRepository.findById(id, orgFiter);
-    return {
-      ...prod.toJSON(),
-      files: await this.getProductMedia(prod, 1)
-    } as IProduct;
+
+    return await this.productRepository.toJSON(prod, false);
   }
 
   @put('/organizations/{organizationId}/catalog/products/{id}')
@@ -263,7 +187,7 @@ export class ProductController {
   ): Promise<IProduct> {
     const org = await this.organizationRepository.findById(organizationId);
 
-    const orgFiter = this.getOrganizationFilter(org);
+    const orgFiter = this.productRepository.getOrganizationFilter(org);
     let prod = await this.productRepository.findById(id, orgFiter);
 
     const cat = await this.productCategoryRepository.findById(payload.productCategoryId, orgFiter);
@@ -282,14 +206,9 @@ export class ProductController {
     }
 
     await this.productRepository.replaceById(prod.id, model);
-
     this.response.status(201);
     prod = await this.productRepository.findById(prod.id, orgFiter);
-
-    return {
-      ...prod.toJSON(),
-      files: await this.getProductMedia(prod, 1)
-    } as IProduct;
+    return await this.productRepository.toJSON(prod);
   }
 
   @patch('/organizations/{organizationId}/catalog/products/{id}/media')
@@ -308,9 +227,9 @@ export class ProductController {
     }) sort: Sort
   ): Promise<number> {
     const org = await this.organizationRepository.findById(organizationId);
-    const filter = this.getOrganizationFilter(org);
+    const filter = this.productRepository.getOrganizationFilter(org);
     const prod = await this.productRepository.findById(id, filter);
-    const mediaFilter = this.getMediaFilter(prod);
+    const mediaFilter = this.productRepository.getMediaFilter(prod);
     let count = 0;
     for (let i = 0; i < sort.ids.length; i++) {
       const where: Where<Media> = {
@@ -334,7 +253,7 @@ export class ProductController {
     @param.path.number('id') id: number
   ): Promise<void> {
     const org = await this.organizationRepository.findById(organizationId);
-    const filter = this.getOrganizationFilter(org);
+    const filter = this.productRepository.getOrganizationFilter(org);
 
     const prod = await this.productRepository.findById(id, filter);
     await this.productRepository.deleteById(prod.id);
