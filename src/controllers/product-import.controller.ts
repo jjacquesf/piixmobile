@@ -200,7 +200,7 @@ export class ProductImportController {
                     } else {
                       const tmp = await this.productCategoryRepository.findByName(categoryName, org);
                       if (tmp != null) {
-                        categories[categoryName] = cat;
+                        categories[categoryName] = tmp;
                       }
                     }
 

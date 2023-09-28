@@ -20,7 +20,7 @@ export class ProductCategoryRepository extends DefaultCrudRepository<
       where: {
         organizationId: org.id,
         name: {
-          like: name
+          like: name.trim()
         }
       }
     };
