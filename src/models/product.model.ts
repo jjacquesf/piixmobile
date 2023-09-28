@@ -1,5 +1,4 @@
 import {Entity, model, property} from '@loopback/repository';
-
 @model({
   settings: {idInjection: false, mysql: {table: 'product'}}
 })

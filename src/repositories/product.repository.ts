@@ -59,6 +59,20 @@ export class ProductRepository extends DefaultCrudRepository<
     return files;
   }
 
+
+  public findBySku = (sku: string, org: Organization): Promise<Product | null> => {
+    const filter: Filter<Product> = {
+      where: {
+        organizationId: org.id,
+        sku: {
+          eq: sku
+        }
+      }
+    };
+
+    return this.findOne(filter);
+  }
+
   public toJSON = async (model: Product, fullMedia: boolean = true): Promise<IProduct> => {
     return {
       ...model.toJSON(),
