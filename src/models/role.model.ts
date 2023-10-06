@@ -5,6 +5,7 @@ import {Entity, model, property} from '@loopback/repository';
 })
 export class Role extends Entity {
 
+
   @property({
     type: 'number',
     jsonSchema: {nullable: false},
