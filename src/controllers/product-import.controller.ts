@@ -241,11 +241,6 @@ export class ProductImportController {
                 break;
               }
             }
-
-            resolve({
-              success: true,
-              config
-            });
           } catch (err) {
             // return response.status(400).send(err.message);
             reject(err);

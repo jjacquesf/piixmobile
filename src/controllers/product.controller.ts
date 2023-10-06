@@ -55,7 +55,7 @@ export class ProductController {
     const models = await this.productRepository.find({where: {organizationId: org.id}});
     const data: IProduct[] = [];
     for (let i = 0; i < models.length; i++) {
-      data.push(await this.productRepository.toJSON(models[i], false))
+      data.push(await this.productRepository.toJSON(models[i]))
     }
 
     return data;
