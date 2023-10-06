@@ -4,6 +4,7 @@ import {Entity, model, property} from '@loopback/repository';
   settings: {idInjection: false, mysql: {table: 'role'}}
 })
 export class Role extends Entity {
+
   @property({
     type: 'number',
     jsonSchema: {nullable: false},
