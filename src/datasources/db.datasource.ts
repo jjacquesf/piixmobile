@@ -1,15 +1,11 @@
-import {inject, lifeCycleObserver, LifeCycleObserver} from '@loopback/core';
+import {inject, lifeCycleObserver, LifeCycleObserver, service} from '@loopback/core';
 import {juggler} from '@loopback/repository';
+import {ConfigService} from '../services';
+require('dotenv').config();
 
 const config = {
   name: 'db',
-  connector: 'mysql',
-  url: 'mysql://Fu7EMCpc:m3J4Cup6zkauMNdG@piixmobile-db.ca5d7inrbx8v.us-east-1.rds.amazonaws.com/piixmobile-dev',
-  host: 'piixmobile-db.ca5d7inrbx8v.us-east-1.rds.amazonaws.com',
-  port: 3306,
-  user: 'Fu7EMCpc',
-  password: 'm3J4Cup6zkauMNdG',
-  database: 'piixmobile-dev'
+  // connector: 'mysql',
 };
 
 // Observe application's life cycle to disconnect the datasource when
@@ -23,9 +19,15 @@ export class DbDataSource extends juggler.DataSource
   static readonly defaultConfig = config;
 
   constructor(
-    @inject('datasources.config.db', {optional: true})
-    dsConfig: object = config,
+    @inject('datasources.config.db', {optional: true}) dsConfig: object = config,
+    @service(ConfigService) private configService: ConfigService
   ) {
-    super(dsConfig);
+
+    const dbConfig = {
+      ...dsConfig,
+      ...configService.dbConfig
+    }
+
+    super(dbConfig);
   }
 }

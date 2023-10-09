@@ -17,10 +17,12 @@ interface S3Config {
 })
 export class ConfigService {
   private s3config: S3Config;
-
   private bucketName: string;
+  private dataBaseConfig: object;
 
   constructor(/* Add @inject to inject parameters */) {
+
+    // S3
     const {
       AWS_REGION = '',
       AWS_ACCESS_KEY = '',
@@ -36,6 +38,28 @@ export class ConfigService {
     }
 
     this.bucketName = AWS_S3_BUCKET;
+
+    // MySQL
+    const {
+      DB_CONNECTOR = 'mysql',
+      DB_HOST = '',
+      DB_USERNAME = '',
+      DB_PASSWORD = '',
+      DB_NAME = '',
+      DB_PORT = 3306
+    } = process.env;
+
+    this.dataBaseConfig = {
+      connector: DB_CONNECTOR,
+      url: `${DB_CONNECTOR}://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}`,
+      host: DB_HOST,
+      port: DB_PORT,
+      user: DB_USERNAME,
+      password: DB_PASSWORD,
+      database: DB_NAME,
+    }
+
+
   }
 
   /*
@@ -45,5 +69,9 @@ export class ConfigService {
 
   public get s3BucketName(): string {
     return this.bucketName;
+  }
+
+  public get dbConfig(): object {
+    return this.dataBaseConfig;
   }
 }
