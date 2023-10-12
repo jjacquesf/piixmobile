@@ -49,7 +49,8 @@ export class ProductController {
     },
   })
   async find(
-    @param.path.number('organizationId') organizationId: number
+    @param.path.number('organizationId') organizationId: number,
+    // @param.filter(Product) filter?: Filter<Product>
   ): Promise<IProduct[]> {
     const org = await this.organizationRepository.findById(organizationId);
     const models = await this.productRepository.find({where: {organizationId: org.id}});
