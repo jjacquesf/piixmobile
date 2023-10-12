@@ -53,7 +53,9 @@ export class ProductController {
     // @param.filter(Product) filter?: Filter<Product>
   ): Promise<IProduct[]> {
     const org = await this.organizationRepository.findById(organizationId);
-    const models = await this.productRepository.find({where: {organizationId: org.id}});
+    const models = await this.productRepository.find({
+      where: {organizationId: org.id}
+    });
     const data: IProduct[] = [];
     for (let i = 0; i < models.length; i++) {
       data.push(await this.productRepository.toJSON(models[i]))

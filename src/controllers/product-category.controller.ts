@@ -6,6 +6,7 @@ import {
 } from '@loopback/repository';
 import {Request, Response, RestBindings, del, get, getModelSchemaRef, param, patch, post, put, requestBody, response} from '@loopback/rest';
 import {Organization, ProductCategory} from '../models';
+import {IProductCategory} from '../models/interfaces/product-category.interfaces';
 import {OrganizationRepository, ProductCategoryRepository} from '../repositories';
 
 @authenticate('jwt')
@@ -40,9 +41,22 @@ export class ProductCategoryController {
   })
   async find(
     @param.path.number('organizationId') organizationId: number
-  ): Promise<ProductCategory[]> {
+  ): Promise<IProductCategory[]> {
     const org = await this.organizationRepository.findById(organizationId);
-    return this.productCategoryRepository.find({where: {organizationId: org.id}});
+    const models = await this.productCategoryRepository.find({
+      order: ['name ASC'],
+      where: {
+        organizationId: org.id,
+        parentId: null
+      }
+    });
+
+    const data: IProductCategory[] = [];
+    for (let i = 0; i < models.length; i++) {
+      data.push(await this.productCategoryRepository.toJSON(models[i]))
+    }
+
+    return data;
   }
 
   @get('/organizations/{organizationId}/catalog/categories/{id}')

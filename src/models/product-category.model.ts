@@ -1,4 +1,4 @@
-import {Entity, model, property} from '@loopback/repository';
+import {Entity, hasMany, model, property} from '@loopback/repository';
 
 @model({
   settings: {idInjection: false, mysql: {table: 'product_category'}}
@@ -85,6 +85,9 @@ export class ProductCategory extends Entity {
     mysql: {columnName: 'status', dataType: 'tinyint', dataLength: null, dataPrecision: 3, dataScale: 0, nullable: 'N', generated: 0},
   })
   status: number;
+
+  @hasMany(() => ProductCategory, {keyTo: 'parentId'})
+  children?: ProductCategory[];
 
   // Define well-known properties here
 
