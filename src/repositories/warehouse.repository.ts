@@ -1,5 +1,5 @@
 import {inject, service} from '@loopback/core';
-import {DefaultCrudRepository, Filter, repository} from '@loopback/repository';
+import {DefaultCrudRepository, Filter, RepositoryBindings, repository} from '@loopback/repository';
 import {DbDataSource} from '../datasources';
 import {BranchOffice, Organization, Warehouse, WarehouseRelations} from '../models';
 import {S3Service} from '../services';
@@ -10,6 +10,7 @@ export class WarehouseRepository extends DefaultCrudRepository<
   typeof Warehouse.prototype.id,
   WarehouseRelations
 > {
+  public static BindingKey = `${RepositoryBindings.REPOSITORIES}.WarehouseRepository`;
   constructor(
     @inject('datasources.db') dataSource: DbDataSource,
     @repository(MediaRepository) public mediaRepository: MediaRepository,

@@ -1,7 +1,7 @@
 import {AuthenticationComponent} from '@loopback/authentication';
 import {JWTAuthenticationComponent, UserServiceBindings} from '@loopback/authentication-jwt';
 import {BootMixin} from '@loopback/boot';
-import {ApplicationConfig} from '@loopback/core';
+import {ApplicationConfig, BindingScope} from '@loopback/core';
 import {RepositoryMixin} from '@loopback/repository';
 import {RestApplication} from '@loopback/rest';
 import {
@@ -12,6 +12,7 @@ import {ServiceMixin} from '@loopback/service-proxy';
 import multer from 'multer';
 import path from 'path';
 import {DbDataSource} from './datasources';
+import {AuthInterceptor} from './interceptors';
 import {FILE_UPLOAD_SERVICE, STORAGE_DIRECTORY} from './keys';
 import {MySequence} from './sequence';
 
@@ -54,6 +55,10 @@ export class PiixmobileApiApplication extends BootMixin(
         nested: true,
       },
     };
+
+    this.bind(AuthInterceptor.BINDING_KEY)
+      .toProvider(AuthInterceptor)
+      .inScope(BindingScope.REQUEST);
   }
 
   /**
@@ -75,4 +80,6 @@ export class PiixmobileApiApplication extends BootMixin(
     // Configure the file upload service with multer options
     this.configure(FILE_UPLOAD_SERVICE).to(multerOptions);
   }
+
+
 }
