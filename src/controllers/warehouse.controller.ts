@@ -24,8 +24,8 @@ import {Warehouse} from '../models';
 import {WarehouseRepository} from '../repositories';
 
 const validateWarehouseExists: Interceptor = async (invocationCtx, next) => {
-  const repo: Warehouse = await invocationCtx.get(WarehouseRepository.BindingKey);
-  const orgId: number = await invocationCtx.get('USER_ORGANIZATION_ID');
+  const repo = await invocationCtx.get<WarehouseRepository>(WarehouseRepository.BindingKey);
+  const orgId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
   const id: number = invocationCtx.args[0] || 0;
 
   const filter: Filter<Warehouse> = {

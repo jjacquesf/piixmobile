@@ -25,9 +25,8 @@ import {BranchOffice} from '../models';
 import {BranchOfficeRepository} from '../repositories';
 
 const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
-
-  const repo: BranchOfficeRepository = await invocationCtx.get(BranchOfficeRepository.BindingKey);
-  const orgId: number = await invocationCtx.get('USER_ORGANIZATION_ID');
+  const repo = await invocationCtx.get<BranchOfficeRepository>(BranchOfficeRepository.BindingKey);
+  const orgId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
   const id: number = invocationCtx.args[0] || 0;
 
   const filter: Filter<BranchOffice> = {
