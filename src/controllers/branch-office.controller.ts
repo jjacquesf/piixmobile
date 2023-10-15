@@ -24,6 +24,7 @@ import {AuthInterceptor} from '../interceptors';
 import {BranchOffice} from '../models';
 import {BranchOfficeRepository} from '../repositories';
 
+// TODO: Create interceptor for unique branch office name validation in the same organization
 const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
   const repo = await invocationCtx.get<BranchOfficeRepository>(BranchOfficeRepository.BindingKey);
   const orgId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
@@ -37,7 +38,9 @@ const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
   };
 
   const model = await repo.findOne(filter);
-  if (model == null) {throw HttpErrors[404]}
+  if (model == null) {
+    throw new HttpErrors[422]('La sucursal especificada no existe en la organización.');
+  }
 
   const result = await next();
   return result;

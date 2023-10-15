@@ -42,7 +42,4 @@ export class WarehouseRepository extends DefaultCrudRepository<
 
     return filter;
   }
-
-
-
 }

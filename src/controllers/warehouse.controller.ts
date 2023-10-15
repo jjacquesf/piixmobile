@@ -1,7 +1,9 @@
+import {authenticate} from '@loopback/authentication';
 import {inject, intercept, Interceptor} from '@loopback/core';
 import {
   Count,
   CountSchema,
+  DataObject,
   Filter,
   FilterExcludingWhere,
   repository,
@@ -21,8 +23,9 @@ import {
 } from '@loopback/rest';
 import {AuthInterceptor} from '../interceptors';
 import {Warehouse} from '../models';
-import {WarehouseRepository} from '../repositories';
+import {BranchOfficeRepository, WarehouseRepository} from '../repositories';
 
+// TODO: Create interceptor for unique warehouse name validation in the same branch office
 const validateWarehouseExists: Interceptor = async (invocationCtx, next) => {
   const repo = await invocationCtx.get<WarehouseRepository>(WarehouseRepository.BindingKey);
   const orgId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
@@ -36,12 +39,36 @@ const validateWarehouseExists: Interceptor = async (invocationCtx, next) => {
   };
 
   const model = await repo.findOne(filter);
-  if (model == null) {throw HttpErrors[404]}
+  if (model == null) {
+    throw new HttpErrors[422]('El almacen especificado no existe en la organización.');
+  }
 
   const result = await next();
   return result;
 };
 
+const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
+  const repo = await invocationCtx.get<BranchOfficeRepository>(BranchOfficeRepository.BindingKey);
+  const orgId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
+  const data: DataObject<Warehouse> = invocationCtx.args[0] || {};
+
+  const filter: Filter<Warehouse> = {
+    where: {
+      id: data.branchOfficeId || 0,
+      organizationId: orgId
+    }
+  };
+
+  const model = await repo.findOne(filter);
+  if (model == null) {
+    throw new HttpErrors[422]('La sucursal especificada no existe en la organización.');
+  }
+
+  const result = await next();
+  return result;
+};
+
+@authenticate('jwt')
 @intercept(
   AuthInterceptor.BINDING_KEY
 )
@@ -52,6 +79,7 @@ export class WarehouseController {
     public warehouseRepository: WarehouseRepository,
   ) { }
 
+  @intercept(validateBranchOfficeExists)
   @post('/warehouses')
   @response(200, {
     description: 'Warehouse model instance',
@@ -70,8 +98,16 @@ export class WarehouseController {
     })
     warehouse: Omit<Warehouse, 'id'>,
   ): Promise<Warehouse> {
+    // const repo = new DefaultTransactionalRepository(Warehouse, this.warehouseRepository.dataSource);
+    // const tx = await repo.beginTransaction();
+    // Object.assign(warehouse, {organizationId: this.organizationId});
+    // const model = await this.warehouseRepository.create(warehouse, {transaction: tx});
+    // await tx.commit();
+    // return model;
+
     Object.assign(warehouse, {organizationId: this.organizationId});
-    return this.warehouseRepository.create(warehouse);
+    const model = await this.warehouseRepository.create(warehouse);
+    return model;
   }
 
   @get('/warehouses/count')
