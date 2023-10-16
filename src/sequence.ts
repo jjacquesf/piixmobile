@@ -43,6 +43,7 @@ export class MySequence implements SequenceHandler {
         const profile = await this.profileRepository.findOne({where: {userId: user[securityId]}});
         if (profile?.organizationId != undefined) {
           context.bind('USER_ORGANIZATION_ID').to(profile?.organizationId);
+          context.bind('USER_PROFILE_ID').to(profile?.id);
         }
       }
       const args = await this.parseParams(request, route);

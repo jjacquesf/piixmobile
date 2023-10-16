@@ -6,5 +6,6 @@ export * from './product.model';
 export * from './profile-role.model';
 export * from './profile.model';
 export * from './role.model';
+export * from './stock-movement.model';
 export * from './warehouse.model';
-
+export * from './stock-count.model';

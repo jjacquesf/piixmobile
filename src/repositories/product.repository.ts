@@ -1,5 +1,5 @@
 import {inject, service} from '@loopback/core';
-import {DefaultCrudRepository, Filter, repository} from '@loopback/repository';
+import {DefaultCrudRepository, Filter, RepositoryBindings, repository} from '@loopback/repository';
 import {DbDataSource} from '../datasources';
 import {Media, Organization, Product, ProductRelations} from '../models';
 import {IProduct, IProductMedia} from '../models/interfaces';
@@ -11,6 +11,7 @@ export class ProductRepository extends DefaultCrudRepository<
   typeof Product.prototype.id,
   ProductRelations
 > {
+  public static BindingKey = `${RepositoryBindings.REPOSITORIES}.ProductRepository`;
   constructor(
     @inject('datasources.db') dataSource: DbDataSource,
     @repository(MediaRepository) public mediaRepository: MediaRepository,

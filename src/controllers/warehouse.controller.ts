@@ -98,13 +98,6 @@ export class WarehouseController {
     })
     warehouse: Omit<Warehouse, 'id'>,
   ): Promise<Warehouse> {
-    // const repo = new DefaultTransactionalRepository(Warehouse, this.warehouseRepository.dataSource);
-    // const tx = await repo.beginTransaction();
-    // Object.assign(warehouse, {organizationId: this.organizationId});
-    // const model = await this.warehouseRepository.create(warehouse, {transaction: tx});
-    // await tx.commit();
-    // return model;
-
     Object.assign(warehouse, {organizationId: this.organizationId});
     const model = await this.warehouseRepository.create(warehouse);
     return model;

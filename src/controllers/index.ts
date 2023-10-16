@@ -4,3 +4,4 @@ export * from './ping.controller';
 export * from './product-import.controller';
 export * from './branch-office.controller';
 export * from './warehouse.controller';
+export * from './stock-movement.controller';
