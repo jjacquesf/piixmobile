@@ -10,9 +10,9 @@ import {
   repository
 } from '@loopback/repository';
 import {HttpErrors, Request, RequestContext, Response, RestBindings, del, get, getModelSchemaRef, param, patch, post, put, requestBody, response} from '@loopback/rest';
-import {EntityType, Media, Organization, Product, StockCount} from '../models';
+import {EntityType, Media, Organization, Product, StockCount, Warehouse} from '../models';
 import {IProduct} from '../models/interfaces';
-import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository, StockCountRepository, StockMovementRepository} from '../repositories';
+import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository, StockCountRepository, StockMovementRepository, WarehouseRepository} from '../repositories';
 
 const validateOrganizationExists: Interceptor = async (invocationCtx, next) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
@@ -55,8 +55,8 @@ const validateEmptyProductStock: Interceptor = async (invocationCtx, next) => {
   const repo = await invocationCtx.get<ProductRepository>(ProductRepository.BindingKey);
 
   let can_be_deleted = true;
-  const stock = await repo.execute(`SELECT product_id, SUM(stock) AS stock FROM stock_count WHERE product_id = ${prod.id} GROUP BY product_id`);
-  if (stock?.stock != undefined && stock?.stock > 0) {
+  const count = await repo.execute(`SELECT product_id, SUM(stock) AS stock FROM stock_count WHERE product_id = ${prod.id} GROUP BY product_id`);
+  if (count.length != 0 && count[0]?.stock > 0) {
     can_be_deleted = false;
   }
 
@@ -101,6 +101,9 @@ export class ProductController {
     public stockCountRepository: StockCountRepository,
     @repository(StockMovementRepository)
     public stockMovementRepository: StockMovementRepository,
+    @repository(WarehouseRepository)
+    public warehouseRepository: WarehouseRepository,
+
   ) { }
 
 
@@ -126,9 +129,13 @@ export class ProductController {
         organizationId: org.id
       }
     });
+
+    const where: Where<Warehouse> = {organizationId: org.id};
+    const warehouses = await this.warehouseRepository.find(where);
+
     const data: IProduct[] = [];
     for (let i = 0; i < models.length; i++) {
-      data.push(await this.productRepository.toJSON(models[i]))
+      data.push(await this.productRepository.toJSON(models[i], warehouses));
     }
 
     return data;
@@ -150,7 +157,11 @@ export class ProductController {
     @param.path.number('id') id: number,
   ): Promise<IProduct> {
     const prod = await this.requestCtx.get<Product>(ProductController.ProductBindingKey);
-    return await this.productRepository.toJSON(prod);
+
+    const where: Where<Warehouse> = {organizationId: prod.organizationId};
+    const warehouses = await this.warehouseRepository.find(where);
+
+    return await this.productRepository.toJSON(prod, warehouses);
   }
 
   @intercept(validateOrganizationExists)
@@ -188,7 +199,12 @@ export class ProductController {
 
     this.response.status(201);
     const prod = await this.productRepository.create(model);
-    return await this.productRepository.toJSON(prod);
+
+
+    const where: Where<Warehouse> = {organizationId: prod.organizationId};
+    const warehouses = await this.warehouseRepository.find(where);
+
+    return await this.productRepository.toJSON(prod, warehouses);
   }
 
   @intercept(validateOrganizationExists)
@@ -239,7 +255,10 @@ export class ProductController {
     this.response.status(201);
     prod = await this.productRepository.findById(id, orgFiter);
 
-    return await this.productRepository.toJSON(prod, false);
+    const where: Where<Warehouse> = {organizationId: prod.organizationId};
+    const warehouses = await this.warehouseRepository.find(where);
+
+    return await this.productRepository.toJSON(prod, warehouses, false);
   }
 
   @intercept(validateOrganizationExists)
@@ -283,7 +302,11 @@ export class ProductController {
     await this.productRepository.replaceById(prod.id, model);
     this.response.status(201);
     prod = await this.productRepository.findById(prod.id, orgFiter);
-    return await this.productRepository.toJSON(prod);
+
+    const where: Where<Warehouse> = {organizationId: prod.organizationId};
+    const warehouses = await this.warehouseRepository.find(where);
+
+    return await this.productRepository.toJSON(prod, warehouses);
   }
 
   @intercept(validateOrganizationExists)

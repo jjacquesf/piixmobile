@@ -8,6 +8,12 @@ export interface IProductMedia {
   id: number;
 }
 
+export interface IProductWarehouseStock {
+  id: number;
+  name: string;
+  stock: number;
+}
+
 export interface IProduct {
   id: number;
   brand: string;
@@ -20,5 +26,6 @@ export interface IProduct {
   sku: string;
   status: number;
   updated: string | null;
-  files: IProductMedia[]
+  files: IProductMedia[];
+  stock: IProductWarehouseStock[]
 }
