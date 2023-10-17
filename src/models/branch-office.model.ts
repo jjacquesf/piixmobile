@@ -7,12 +7,12 @@ import {Product} from './product.model';
 export class BranchOffice extends Entity {
   @property({
     type: 'string',
-    jsonSchema: {nullable: true},
+    jsonSchema: {nullable: false},
     length: 100,
     generated: 0,
-    mysql: {columnName: 'address', dataType: 'varchar', dataLength: 100, dataPrecision: null, dataScale: null, nullable: 'Y', generated: 0},
+    mysql: {columnName: 'address', dataType: 'varchar', dataLength: 100, dataPrecision: null, dataScale: null, nullable: 'N', generated: 0},
   })
-  address?: string;
+  address: string;
 
   @property({
     type: 'string',
@@ -26,15 +26,15 @@ export class BranchOffice extends Entity {
 
   @property({
     type: 'number',
-    required: true,
-    jsonSchema: {nullable: false},
+    required: false,
+    jsonSchema: {nullable: true},
     precision: 10,
     scale: 0,
     generated: 1,
     id: 1,
-    mysql: {columnName: 'city_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'N', generated: 0},
+    mysql: {columnName: 'city_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'Y', generated: 0},
   })
-  cityId: number;
+  cityId?: number;
 
   @property({
     type: 'string',
@@ -107,15 +107,15 @@ export class BranchOffice extends Entity {
 
   @property({
     type: 'number',
-    required: true,
-    jsonSchema: {nullable: false},
+    required: false,
+    jsonSchema: {nullable: true},
     precision: 10,
     scale: 0,
     generated: 1,
     id: 1,
-    mysql: {columnName: 'state_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'N', generated: 0},
+    mysql: {columnName: 'state_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'Y', generated: 0},
   })
-  stateId: number;
+  stateId?: number;
 
   @property({
     type: 'number',

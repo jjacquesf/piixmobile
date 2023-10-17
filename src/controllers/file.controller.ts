@@ -19,16 +19,13 @@ import {
 } from '@loopback/rest';
 import Ajv, {JSONSchemaType} from 'ajv';
 import {FILE_UPLOAD_SERVICE} from '../keys';
-import {Media} from '../models';
+import {EntityType, Media} from '../models';
 import {MediaRepository, ProductRepository} from '../repositories';
 import {S3Service} from '../services';
 import {FileUploadHandler, UploadedFiles} from '../types';
 
-enum EntityType {
-  Product = "Product"
-}
 
-interface IMediaUploadEntity {
+export interface IMediaUploadEntity {
   entityType: EntityType;
   entityId: number;
 }

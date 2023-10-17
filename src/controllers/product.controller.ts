@@ -1,17 +1,72 @@
 import {authenticate} from '@loopback/authentication';
-import {inject} from '@loopback/core';
+import {Binding, Interceptor, inject, intercept} from '@loopback/core';
 import {
+  DefaultTransactionalRepository,
   Entity,
+  Filter,
   Where,
   model,
   property,
   repository
 } from '@loopback/repository';
-import {Request, Response, RestBindings, del, get, getModelSchemaRef, param, patch, post, put, requestBody, response} from '@loopback/rest';
-import {Media, Product} from '../models';
+import {HttpErrors, Request, RequestContext, Response, RestBindings, del, get, getModelSchemaRef, param, patch, post, put, requestBody, response} from '@loopback/rest';
+import {EntityType, Media, Organization, Product, StockCount} from '../models';
 import {IProduct} from '../models/interfaces';
-import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository} from '../repositories';
+import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository, StockCountRepository, StockMovementRepository} from '../repositories';
 
+const validateOrganizationExists: Interceptor = async (invocationCtx, next) => {
+  const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
+  const repo = await invocationCtx.get<OrganizationRepository>(OrganizationRepository.BindingKey);
+  const id: number = invocationCtx.args[0] || 0;
+
+  const model = await repo.findById(id);
+
+  const binding = Binding
+    .bind<Organization>(ProductController.OrganizationBindingKey)
+    .to(model);
+  reqCtx.add(binding);
+
+  const result = await next();
+  return result;
+};
+
+const validateProductExists: Interceptor = async (invocationCtx, next) => {
+  const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
+  const org = await reqCtx.get<Organization>(ProductController.OrganizationBindingKey);
+  const repo = await invocationCtx.get<ProductRepository>(ProductRepository.BindingKey);
+
+  const id: number = invocationCtx.args[1] || 0;
+  const orgFiter = repo.getOrganizationFilter(org);
+
+  const model = await repo.findById(id, orgFiter);
+
+  const binding = Binding
+    .bind<Product>(ProductController.ProductBindingKey)
+    .to(model);
+  reqCtx.add(binding);
+
+  const result = await next();
+  return result;
+};
+
+const validateEmptyProductStock: Interceptor = async (invocationCtx, next) => {
+  const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
+  let prod = await reqCtx.get<Product>(ProductController.ProductBindingKey);
+  const repo = await invocationCtx.get<ProductRepository>(ProductRepository.BindingKey);
+
+  let can_be_deleted = true;
+  const stock = await repo.execute(`SELECT product_id, SUM(stock) AS stock FROM stock_count WHERE product_id = ${prod.id} GROUP BY product_id`);
+  if (stock?.stock != undefined && stock?.stock > 0) {
+    can_be_deleted = false;
+  }
+
+  if (!can_be_deleted) {
+    throw HttpErrors[422]('El producto no puede ser eliminado porque tiene existencias registradas.');
+  }
+
+  const result = await next();
+  return result;
+};
 
 @model()
 export class Sort extends Entity {
@@ -25,7 +80,13 @@ export class Sort extends Entity {
 
 @authenticate('jwt')
 export class ProductController {
+
+  public static OrganizationBindingKey = 'ProductController.OrganizationKey';
+  public static ProductBindingKey = 'ProductController.ProductKey';
+
+
   constructor(
+    @inject(RestBindings.Http.CONTEXT) private requestCtx: RequestContext,
     @inject(RestBindings.Http.REQUEST) private request: Request,
     @inject(RestBindings.Http.RESPONSE) private response: Response,
     @repository(OrganizationRepository)
@@ -35,10 +96,15 @@ export class ProductController {
     @repository(ProductCategoryRepository)
     public productCategoryRepository: ProductCategoryRepository,
     @repository(MediaRepository)
-    public mediaRepository: MediaRepository
+    public mediaRepository: MediaRepository,
+    @repository(StockCountRepository)
+    public stockCountRepository: StockCountRepository,
+    @repository(StockMovementRepository)
+    public stockMovementRepository: StockMovementRepository,
   ) { }
 
 
+  @intercept(validateOrganizationExists)
   @get('/organizations/{organizationId}/catalog/products')
   @response(200, {
     description: 'Product model instance',
@@ -50,11 +116,15 @@ export class ProductController {
   })
   async find(
     @param.path.number('organizationId') organizationId: number,
-    // @param.filter(Product) filter?: Filter<Product>
+    @param.filter(Product) filter?: Filter<Product>
   ): Promise<IProduct[]> {
-    const org = await this.organizationRepository.findById(organizationId);
+    const org = await this.requestCtx.get<Organization>(ProductController.OrganizationBindingKey);
     const models = await this.productRepository.find({
-      where: {organizationId: org.id}
+      ...filter,
+      where: {
+        ...(filter != undefined && filter.where != undefined ? filter.where : {}),
+        organizationId: org.id
+      }
     });
     const data: IProduct[] = [];
     for (let i = 0; i < models.length; i++) {
@@ -64,6 +134,8 @@ export class ProductController {
     return data;
   }
 
+  @intercept(validateOrganizationExists)
+  @intercept(validateProductExists)
   @get('/organizations/{organizationId}/catalog/products/{id}')
   @response(200, {
     description: 'Product model instance',
@@ -77,13 +149,11 @@ export class ProductController {
     @param.path.number('organizationId') organizationId: number,
     @param.path.number('id') id: number,
   ): Promise<IProduct> {
-    const org = await this.organizationRepository.findById(organizationId);
-    const orgFiter = this.productRepository.getOrganizationFilter(org);
-    const model = await this.productRepository.findById(id, orgFiter);
-
-    return await this.productRepository.toJSON(model);
+    const prod = await this.requestCtx.get<Product>(ProductController.ProductBindingKey);
+    return await this.productRepository.toJSON(prod);
   }
 
+  @intercept(validateOrganizationExists)
   @post('/organizations/{organizationId}/catalog/products')
   @response(201, {
     description: 'Product POST success',
@@ -99,7 +169,7 @@ export class ProductController {
     })
     payload: Product,
   ): Promise<IProduct> {
-    const org = await this.organizationRepository.findById(organizationId);
+    const org = await this.requestCtx.get<Organization>(ProductController.OrganizationBindingKey);
 
     const orgFiter = this.productRepository.getOrganizationFilter(org);
     const cat = await this.productCategoryRepository.findById(payload.productCategoryId, orgFiter);
@@ -121,6 +191,8 @@ export class ProductController {
     return await this.productRepository.toJSON(prod);
   }
 
+  @intercept(validateOrganizationExists)
+  @intercept(validateProductExists)
   @patch('/organizations/{organizationId}/catalog/products/{id}')
   @response(201, {
     description: 'Product PATCH success',
@@ -137,10 +209,10 @@ export class ProductController {
     })
     payload: Product,
   ): Promise<IProduct> {
-    const org = await this.organizationRepository.findById(organizationId);
+    const org = await this.requestCtx.get<Organization>(ProductController.OrganizationBindingKey);
+    let prod = await this.requestCtx.get<Product>(ProductController.ProductBindingKey);
 
     const orgFiter = this.productRepository.getOrganizationFilter(org);
-    let prod = await this.productRepository.findById(id, orgFiter);
 
     let productCategoryId = prod.productCategoryId;
     if (payload.productCategoryId) {
@@ -170,6 +242,8 @@ export class ProductController {
     return await this.productRepository.toJSON(prod, false);
   }
 
+  @intercept(validateOrganizationExists)
+  @intercept(validateProductExists)
   @put('/organizations/{organizationId}/catalog/products/{id}')
   @response(201, {
     description: 'Product PUT success',
@@ -186,10 +260,10 @@ export class ProductController {
     })
     payload: Product,
   ): Promise<IProduct> {
-    const org = await this.organizationRepository.findById(organizationId);
+    const org = await this.requestCtx.get<Organization>(ProductController.OrganizationBindingKey);
+    let prod = await this.requestCtx.get<Product>(ProductController.ProductBindingKey);
 
     const orgFiter = this.productRepository.getOrganizationFilter(org);
-    let prod = await this.productRepository.findById(id, orgFiter);
 
     const cat = await this.productCategoryRepository.findById(payload.productCategoryId, orgFiter);
 
@@ -212,6 +286,7 @@ export class ProductController {
     return await this.productRepository.toJSON(prod);
   }
 
+  @intercept(validateOrganizationExists)
   @patch('/organizations/{organizationId}/catalog/products/{id}/media')
   @response(204, {
     description: 'Sort product media',
@@ -227,9 +302,10 @@ export class ProductController {
       },
     }) sort: Sort
   ): Promise<number> {
-    const org = await this.organizationRepository.findById(organizationId);
+    const org = await this.requestCtx.get<Organization>(ProductController.OrganizationBindingKey);
+    let prod = await this.requestCtx.get<Product>(ProductController.ProductBindingKey);
+
     const filter = this.productRepository.getOrganizationFilter(org);
-    const prod = await this.productRepository.findById(id, filter);
     const mediaFilter = this.productRepository.getMediaFilter(prod);
     let count = 0;
     for (let i = 0; i < sort.ids.length; i++) {
@@ -245,6 +321,9 @@ export class ProductController {
     return count;
   }
 
+  @intercept(validateOrganizationExists)
+  @intercept(validateProductExists)
+  @intercept(validateEmptyProductStock)
   @del('/organizations/{organizationId}/catalog/products/{id}')
   @response(204, {
     description: 'Product DELETE success',
@@ -253,10 +332,24 @@ export class ProductController {
     @param.path.number('organizationId') organizationId: number,
     @param.path.number('id') id: number
   ): Promise<void> {
-    const org = await this.organizationRepository.findById(organizationId);
-    const filter = this.productRepository.getOrganizationFilter(org);
+    let prod = await this.requestCtx.get<Product>(ProductController.ProductBindingKey);
 
-    const prod = await this.productRepository.findById(id, filter);
-    await this.productRepository.deleteById(prod.id);
+    const repo = new DefaultTransactionalRepository(Product, this.productRepository.dataSource);
+    const tx = await repo.beginTransaction();
+
+    await this.productRepository.deleteById(prod.id, {transaction: tx});
+    const mediaWhere: Where<Product> = {
+      entityId: prod.id,
+      entityType: EntityType.Product,
+    }
+    await this.mediaRepository.deleteAll(mediaWhere, {transaction: tx});
+
+    const stockWhere: Where<StockCount> = {
+      productId: prod.id
+    }
+    await this.stockCountRepository.deleteAll(stockWhere, {transaction: tx});
+    await this.stockMovementRepository.deleteAll(stockWhere, {transaction: tx});
+
+    await tx.commit();
   }
 }
