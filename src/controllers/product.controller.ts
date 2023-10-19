@@ -10,7 +10,7 @@ import {
   repository
 } from '@loopback/repository';
 import {HttpErrors, Request, RequestContext, Response, RestBindings, del, get, getModelSchemaRef, param, patch, post, put, requestBody, response} from '@loopback/rest';
-import {EntityType, Media, Organization, Product, StockCount, Warehouse} from '../models';
+import {EntityType, Media, Organization, Product, StockCount} from '../models';
 import {IProduct} from '../models/interfaces';
 import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository, StockCountRepository, StockMovementRepository, WarehouseRepository} from '../repositories';
 
@@ -130,12 +130,9 @@ export class ProductController {
       }
     });
 
-    const where: Where<Warehouse> = {organizationId: org.id};
-    const warehouses = await this.warehouseRepository.find(where);
-
     const data: IProduct[] = [];
     for (let i = 0; i < models.length; i++) {
-      data.push(await this.productRepository.toJSON(models[i], warehouses));
+      data.push(await this.productRepository.toJSON(models[i]));
     }
 
     return data;
@@ -158,10 +155,7 @@ export class ProductController {
   ): Promise<IProduct> {
     const prod = await this.requestCtx.get<Product>(ProductController.ProductBindingKey);
 
-    const where: Where<Warehouse> = {organizationId: prod.organizationId};
-    const warehouses = await this.warehouseRepository.find(where);
-
-    return await this.productRepository.toJSON(prod, warehouses);
+    return await this.productRepository.toJSON(prod);
   }
 
   @intercept(validateOrganizationExists)
@@ -201,10 +195,10 @@ export class ProductController {
     const prod = await this.productRepository.create(model);
 
 
-    const where: Where<Warehouse> = {organizationId: prod.organizationId};
-    const warehouses = await this.warehouseRepository.find(where);
+    // const where: Where<Warehouse> = {organizationId: prod.organizationId};
+    // const warehouses = await this.warehouseRepository.find(where);
 
-    return await this.productRepository.toJSON(prod, warehouses);
+    return await this.productRepository.toJSON(prod); //warehouses
   }
 
   @intercept(validateOrganizationExists)
@@ -255,10 +249,7 @@ export class ProductController {
     this.response.status(201);
     prod = await this.productRepository.findById(id, orgFiter);
 
-    const where: Where<Warehouse> = {organizationId: prod.organizationId};
-    const warehouses = await this.warehouseRepository.find(where);
-
-    return await this.productRepository.toJSON(prod, warehouses, false);
+    return await this.productRepository.toJSON(prod, false);
   }
 
   @intercept(validateOrganizationExists)
@@ -303,10 +294,7 @@ export class ProductController {
     this.response.status(201);
     prod = await this.productRepository.findById(prod.id, orgFiter);
 
-    const where: Where<Warehouse> = {organizationId: prod.organizationId};
-    const warehouses = await this.warehouseRepository.find(where);
-
-    return await this.productRepository.toJSON(prod, warehouses);
+    return await this.productRepository.toJSON(prod);
   }
 
   @intercept(validateOrganizationExists)
@@ -328,7 +316,6 @@ export class ProductController {
     const org = await this.requestCtx.get<Organization>(ProductController.OrganizationBindingKey);
     let prod = await this.requestCtx.get<Product>(ProductController.ProductBindingKey);
 
-    const filter = this.productRepository.getOrganizationFilter(org);
     const mediaFilter = this.productRepository.getMediaFilter(prod);
     let count = 0;
     for (let i = 0; i < sort.ids.length; i++) {

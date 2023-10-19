@@ -2,11 +2,15 @@
 // Node module: @loopback/example-file-transfer
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
+import fs from 'fs';
+import os from 'os';
 
 import {authenticate} from '@loopback/authentication';
 import {inject, service, uuid} from '@loopback/core';
 import {Filter, repository} from '@loopback/repository';
+
 import {
+  HttpErrors,
   Request,
   Response,
   RestBindings,
@@ -47,7 +51,7 @@ const schemaFileUploadEntity: JSONSchemaType<IMediaUploadEntity> = {
   additionalProperties: false
 }
 
-@authenticate('jwt')
+
 export class FileController {
   constructor(
     @inject(FILE_UPLOAD_SERVICE) private handler: FileUploadHandler,
@@ -79,6 +83,7 @@ export class FileController {
     return filter;
   }
 
+  @authenticate('jwt')
   @post('/files', {
     responses: {
       200: {
@@ -166,15 +171,38 @@ export class FileController {
     @inject(RestBindings.Http.RESPONSE) response: Response,
   ) {
 
-    const file = await this.mediaRepository.findOne(this.getMediaFilter(fileName))
-    if (file != null) {
-      const url = await this.s3.signedUrl(fileName);
-      return response.send({url});
-    }
+    return new Promise<object>(async (resolve, reject) => {
+      const file = await this.mediaRepository.findOne(this.getMediaFilter(fileName));
+      if (file == null) {
+        return response.status(404).send('File not found');
+      }
 
-    return response.status(404).send('File not found');
+      const tmp_path = `${os.tmpdir}/${file.path.split('/').pop()}`;
+      const ws = fs.createWriteStream(tmp_path);
+      ws.on('finish', () => {
+        response.download(tmp_path);
+      })
+      ws.on('error', (error) => {
+        throw new HttpErrors[500](error.message);
+      });
+
+      const rs = await this.s3.getObject(file.path);
+      rs
+        .on('end', () => {
+          console.log('a3');
+          ws.end();
+        })
+        .on('data', (chunk) => {
+          ws.write(chunk);
+        })
+        .on('error', (error) => {
+          throw new HttpErrors[404](error.message);
+        })
+
+    })
   }
 
+  @authenticate('jwt')
   @del('/files')
   @oas.response.file()
   async deleteFile(

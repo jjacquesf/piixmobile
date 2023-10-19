@@ -91,12 +91,12 @@ export class WarehouseController {
         'application/json': {
           schema: getModelSchemaRef(Warehouse, {
             title: 'NewWarehouse',
-            exclude: ['id'],
+            exclude: ['id', 'organizationId'],
           }),
         },
       },
     })
-    warehouse: Omit<Warehouse, 'id'>,
+    warehouse: Omit<Warehouse, 'id,organizationId'>,
   ): Promise<Warehouse> {
     Object.assign(warehouse, {organizationId: this.organizationId});
     const model = await this.warehouseRepository.create(warehouse);

@@ -68,12 +68,12 @@ export class BranchOfficeController {
         'application/json': {
           schema: getModelSchemaRef(BranchOffice, {
             title: 'NewBranchOffice',
-            exclude: ['id'],
+            exclude: ['id', 'organizationId'],
           }),
         },
       },
     })
-    branchOffice: Omit<BranchOffice, 'id'>,
+    branchOffice: Omit<BranchOffice, 'id,organizationId'>,
   ): Promise<BranchOffice> {
     Object.assign(branchOffice, {organizationId: this.organizationId});
     return this.branchOfficeRepository.create(branchOffice);

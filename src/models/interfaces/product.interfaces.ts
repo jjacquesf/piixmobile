@@ -4,12 +4,10 @@ export interface IProductMedia {
   mediaType: number;
   order: number;
   path: string;
-  url: string;
   id: number;
 }
 
 export interface IProductWarehouseStock {
-  id: number;
   name: string;
   stock: number;
 }

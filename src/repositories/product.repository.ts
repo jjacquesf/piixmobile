@@ -1,7 +1,7 @@
 import {inject, service} from '@loopback/core';
 import {DefaultCrudRepository, Filter, RepositoryBindings, repository} from '@loopback/repository';
 import {DbDataSource} from '../datasources';
-import {Media, Organization, Product, ProductRelations, Warehouse} from '../models';
+import {Media, Organization, Product, ProductRelations} from '../models';
 import {IProduct, IProductMedia, IProductWarehouseStock} from '../models/interfaces';
 import {S3Service} from '../services';
 import {MediaRepository} from './media.repository';
@@ -56,7 +56,6 @@ export class ProductRepository extends DefaultCrudRepository<
       files.push(
         {
           ...mediaFiles[i].toJSON(),
-          url: await this.s3.signedUrl(mediaFiles[i].path)
         } as IProductMedia
       )
     }
@@ -64,24 +63,17 @@ export class ProductRepository extends DefaultCrudRepository<
     return files;
   }
 
-  public getProductStock = async (product: Product, warehouses: Warehouse[]): Promise<IProductWarehouseStock[]> => {
-    let data: IProductWarehouseStock[] = [];
-    for (let i = 0; i < warehouses.length; i++) {
-      const id: number = warehouses[i]?.id || 0;
-      const count = await this.warehouseRepository.execute(`SELECT warehouse_id, SUM(stock) AS stock FROM stock_count WHERE warehouse_id = ${id} and product_id = ${product.id} GROUP BY warehouse_id`);
-      let stock = 0;
-      if (count.length != 0) {
-        stock = count[0]?.stock || 0;
-      }
-
-      data.push({
-        id,
-        name: warehouses[i].name,
-        stock,
-      });
-    }
-
-    return data;
+  public getProductStock = async (product: Product): Promise<IProductWarehouseStock[]> => {
+    const count: IProductWarehouseStock[] = await this.warehouseRepository.execute(`SELECT
+                                                                                        warehouse.name, SUM(stock) AS stock
+                                                                                    FROM
+                                                                                        stock_count LEFT JOIN warehouse ON stock_count.warehouse_id = warehouse.id
+                                                                                    WHERE
+                                                                                        stock_count.organization_id = ${product.organizationId}
+                                                                                        and product_id = ${product.id}
+                                                                                    GROUP
+                                                                                        BY warehouse.name`) as unknown as IProductWarehouseStock[];
+    return count;
   }
 
 
@@ -98,11 +90,13 @@ export class ProductRepository extends DefaultCrudRepository<
     return this.findOne(filter);
   }
 
-  public toJSON = async (model: Product, warehouses: Warehouse[], fullMedia: boolean = true): Promise<IProduct> => {
+  public toJSON = async (model: Product, fullMedia: boolean = true): Promise<IProduct> => {
     return {
       ...model.toJSON(),
+      //files: [] as IProductMedia[],
+      // stock: [] as IProductWarehouseStock[],
       files: await this.getProductMedia(model, fullMedia ? undefined : 1),
-      stock: await this.getProductStock(model, warehouses),
+      stock: await this.getProductStock(model),
     } as IProduct
   }
 
