@@ -189,7 +189,6 @@ export class FileController {
       const rs = await this.s3.getObject(file.path);
       rs
         .on('end', () => {
-          console.log('a3');
           ws.end();
         })
         .on('data', (chunk) => {
