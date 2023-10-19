@@ -93,8 +93,6 @@ export class ProductRepository extends DefaultCrudRepository<
   public toJSON = async (model: Product, fullMedia: boolean = true): Promise<IProduct> => {
     return {
       ...model.toJSON(),
-      //files: [] as IProductMedia[],
-      // stock: [] as IProductWarehouseStock[],
       files: await this.getProductMedia(model, fullMedia ? undefined : 1),
       stock: await this.getProductStock(model),
     } as IProduct
