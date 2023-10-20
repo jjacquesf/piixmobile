@@ -22,7 +22,7 @@ import {
 } from '@loopback/rest';
 import {AuthInterceptor} from '../interceptors';
 import {BranchOffice} from '../models';
-import {BranchOfficeRepository} from '../repositories';
+import {BranchOfficeRepository, WarehouseRepository} from '../repositories';
 
 // TODO: Create interceptor for unique branch office name validation in the same organization
 const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
@@ -40,6 +40,25 @@ const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
   const model = await repo.findOne(filter);
   if (model == null) {
     throw new HttpErrors[422]('La sucursal especificada no existe en la organización.');
+  }
+
+  const result = await next();
+  return result;
+};
+
+const validateNoWarehouses: Interceptor = async (invocationCtx, next) => {
+  const repo = await invocationCtx.get<WarehouseRepository>(WarehouseRepository.BindingKey);
+  const orgId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
+  const id: number = invocationCtx.args[0] || 0;
+
+  const filter: Where<BranchOffice> = {
+    organizationId: orgId,
+    branchOfficeId: id
+  };
+
+  const count = await repo.count(filter);
+  if (count.count != 0) {
+    throw new HttpErrors[422]('La sucursal no se puede elminar porque tiene almaces asignados.');
   }
 
   const result = await next();
@@ -189,6 +208,7 @@ export class BranchOfficeController {
     await this.branchOfficeRepository.replaceById(id, branchOffice);
   }
 
+  @intercept(validateNoWarehouses)
   @del('/branch-offices/{id}')
   @response(204, {
     description: 'BranchOffice DELETE success',
