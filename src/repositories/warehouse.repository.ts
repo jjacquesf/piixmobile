@@ -42,4 +42,19 @@ export class WarehouseRepository extends DefaultCrudRepository<
 
     return filter;
   }
+
+
+  public findByName = (name: string, org: Organization, branchOffice: BranchOffice): Promise<Warehouse | null> => {
+    const filter: Filter<Warehouse> = {
+      where: {
+        organizationId: org.id,
+        branchOfficeId: branchOffice.id,
+        name: {
+          like: name.trim()
+        }
+      }
+    };
+
+    return this.findOne(filter);
+  }
 }

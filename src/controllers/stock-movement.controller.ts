@@ -227,11 +227,7 @@ export class StockMovementController {
       lot: stockMovement.lot || '',
     }, {transaction: tx});
 
-    // const updatedStock = await this.stockCountRepository.findById(stock.id);
     Object.assign(stockCount, {stock: s_after});
-    console.log({
-      stock: stockCount.stock
-    })
     await this.stockCountRepository.replaceById(stockCount.id, stockCount, {transaction: tx});
 
     await tx.commit();

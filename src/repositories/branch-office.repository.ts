@@ -29,4 +29,17 @@ export class BranchOfficeRepository extends DefaultCrudRepository<
     return filter;
   }
 
+  public findByName = (name: string, org: Organization): Promise<BranchOffice | null> => {
+    const filter: Filter<BranchOffice> = {
+      where: {
+        organizationId: org.id,
+        businessName: {
+          like: name.trim()
+        }
+      }
+    };
+
+    return this.findOne(filter);
+  }
+
 }
