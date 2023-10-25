@@ -1,5 +1,5 @@
 import {inject} from '@loopback/core';
-import {DefaultCrudRepository} from '@loopback/repository';
+import {DefaultCrudRepository, RepositoryBindings} from '@loopback/repository';
 import {DbDataSource} from '../datasources';
 import {Organization, OrganizationRelations} from '../models';
 
@@ -8,6 +8,8 @@ export class OrganizationRepository extends DefaultCrudRepository<
   typeof Organization.prototype.id,
   OrganizationRelations
 > {
+  public static BindingKey = `${RepositoryBindings.REPOSITORIES}.OrganizationRepository`;
+
   constructor(
     @inject('datasources.db') dataSource: DbDataSource,
   ) {

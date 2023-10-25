@@ -1,18 +1,23 @@
 import {inject, service} from '@loopback/core';
-import {DefaultCrudRepository, Filter, repository} from '@loopback/repository';
+import {DefaultCrudRepository, Filter, RepositoryBindings, repository} from '@loopback/repository';
 import {DbDataSource} from '../datasources';
 import {Media, Organization, Product, ProductRelations} from '../models';
-import {IProduct, IProductMedia} from '../models/interfaces';
+import {IProduct, IProductMedia, IProductWarehouseStock} from '../models/interfaces';
 import {S3Service} from '../services';
 import {MediaRepository} from './media.repository';
+import {OrganizationRepository} from './organization.repository';
+import {WarehouseRepository} from './warehouse.repository';
 
 export class ProductRepository extends DefaultCrudRepository<
   Product,
   typeof Product.prototype.id,
   ProductRelations
 > {
+  public static BindingKey = `${RepositoryBindings.REPOSITORIES}.ProductRepository`;
   constructor(
     @inject('datasources.db') dataSource: DbDataSource,
+    @repository(OrganizationRepository) public organizationRepository: OrganizationRepository,
+    @repository(WarehouseRepository) public warehouseRepository: WarehouseRepository,
     @repository(MediaRepository) public mediaRepository: MediaRepository,
     @service(S3Service) private s3: S3Service
   ) {
@@ -51,12 +56,24 @@ export class ProductRepository extends DefaultCrudRepository<
       files.push(
         {
           ...mediaFiles[i].toJSON(),
-          url: await this.s3.signedUrl(mediaFiles[i].path)
         } as IProductMedia
       )
     }
 
     return files;
+  }
+
+  public getProductStock = async (product: Product): Promise<IProductWarehouseStock[]> => {
+    const count: IProductWarehouseStock[] = await this.warehouseRepository.execute(`SELECT
+                                                                                        warehouse.name, SUM(stock) AS stock
+                                                                                    FROM
+                                                                                        stock_count LEFT JOIN warehouse ON stock_count.warehouse_id = warehouse.id
+                                                                                    WHERE
+                                                                                        stock_count.organization_id = ${product.organizationId}
+                                                                                        and product_id = ${product.id}
+                                                                                    GROUP
+                                                                                        BY warehouse.name`) as unknown as IProductWarehouseStock[];
+    return count;
   }
 
 
@@ -76,7 +93,8 @@ export class ProductRepository extends DefaultCrudRepository<
   public toJSON = async (model: Product, fullMedia: boolean = true): Promise<IProduct> => {
     return {
       ...model.toJSON(),
-      files: await this.getProductMedia(model, fullMedia ? undefined : 1)
+      files: await this.getProductMedia(model, fullMedia ? undefined : 1),
+      stock: await this.getProductStock(model),
     } as IProduct
   }
 

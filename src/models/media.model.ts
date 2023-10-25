@@ -1,5 +1,9 @@
 import {Entity, model, property} from '@loopback/repository';
 
+export enum EntityType {
+  Product = "Product"
+}
+
 @model({
   settings: {idInjection: false, mysql: {table: 'media'}}
 })

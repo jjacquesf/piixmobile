@@ -2,6 +2,7 @@ import {inject} from '@loopback/core';
 import {DefaultCrudRepository, Filter} from '@loopback/repository';
 import {DbDataSource} from '../datasources';
 import {Organization, ProductCategory, ProductCategoryRelations} from '../models';
+import {IProductCategory} from '../models/interfaces/product-category.interfaces';
 
 export class ProductCategoryRepository extends DefaultCrudRepository<
   ProductCategory,
@@ -37,5 +38,24 @@ export class ProductCategoryRepository extends DefaultCrudRepository<
     };
 
     return this.findOne(filter);
+  }
+
+
+  public toJSON = async (model: ProductCategory): Promise<IProductCategory> => {
+
+    const children = await this.find({
+      order: ['name ASC'],
+      where: {
+        organizationId: model.organizationId,
+        parentId: model.id
+      }
+    })
+
+    const aaa = {
+      ...model.toJSON(),
+      children: children.map(child => child.toJSON()) as IProductCategory[]
+    } as IProductCategory;
+
+    return aaa;
   }
 }

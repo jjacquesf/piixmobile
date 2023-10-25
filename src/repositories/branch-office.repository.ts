@@ -1,5 +1,5 @@
 import {inject, service} from '@loopback/core';
-import {DefaultCrudRepository, Filter, repository} from '@loopback/repository';
+import {DefaultCrudRepository, Filter, RepositoryBindings, repository} from '@loopback/repository';
 import {DbDataSource} from '../datasources';
 import {BranchOffice, BranchOfficeRelations, Organization} from '../models';
 import {S3Service} from '../services';
@@ -10,6 +10,7 @@ export class BranchOfficeRepository extends DefaultCrudRepository<
   typeof BranchOffice.prototype.id,
   BranchOfficeRelations
 > {
+  public static BindingKey = `${RepositoryBindings.REPOSITORIES}.BranchOfficeRepository`;
   constructor(
     @inject('datasources.db') dataSource: DbDataSource,
     @repository(MediaRepository) public mediaRepository: MediaRepository,
@@ -26,6 +27,19 @@ export class BranchOfficeRepository extends DefaultCrudRepository<
     };
 
     return filter;
+  }
+
+  public findByName = (name: string, org: Organization): Promise<BranchOffice | null> => {
+    const filter: Filter<BranchOffice> = {
+      where: {
+        organizationId: org.id,
+        businessName: {
+          like: name.trim()
+        }
+      }
+    };
+
+    return this.findOne(filter);
   }
 
 }

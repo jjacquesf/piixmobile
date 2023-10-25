@@ -62,12 +62,23 @@ export class S3Service {
     return await this.client.getSignedUrl('getObject', params);
   }
 
-  public deleteObject = async (path: string) => {
+  public getObject = async (path: string) => {
+    const file = path.split('/').pop();
+    var params = {
+      Bucket: this.config.s3BucketName,
+      Key: path,
+      ResponseContentDisposition: 'filename=' + file
+    };
+
+    return this.client.getObject(params).createReadStream();
+  }
+
+  public deleteObject = (path: string) => {
     var params = {
       Bucket: this.config.s3BucketName,
       Key: path,
     };
 
-    return await this.client.deleteObject(params).promise();
+    return this.client.deleteObject(params)
   }
 }

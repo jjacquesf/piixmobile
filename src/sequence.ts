@@ -3,8 +3,11 @@
 
 import {AUTHENTICATION_STRATEGY_NOT_FOUND, AuthenticateFn, AuthenticationBindings, USER_PROFILE_NOT_FOUND} from '@loopback/authentication';
 import {inject} from '@loopback/core';
+import {repository} from '@loopback/repository';
 import {FindRoute, InvokeMethod, ParseParams, Reject, RequestContext, RestBindings, Send, SequenceHandler} from '@loopback/rest';
+import {securityId} from '@loopback/security';
 import cors from 'cors';
+import {ProfileRepository} from './repositories';
 
 const SequenceActions = RestBindings.SequenceActions;
 
@@ -21,7 +24,8 @@ export class MySequence implements SequenceHandler {
     @inject(SequenceActions.INVOKE_METHOD) protected invoke: InvokeMethod,
     @inject(SequenceActions.SEND) protected send: Send,
     @inject(SequenceActions.REJECT) protected reject: Reject,
-    @inject(AuthenticationBindings.AUTH_ACTION) protected authenticateRequest: AuthenticateFn
+    @inject(AuthenticationBindings.AUTH_ACTION) protected authenticateRequest: AuthenticateFn,
+    @repository(ProfileRepository) protected profileRepository: ProfileRepository
   ) { }
 
   async handle(context: RequestContext): Promise<void> {
@@ -34,7 +38,14 @@ export class MySequence implements SequenceHandler {
       }
 
       const route = this.findRoute(request);
-      await this.authenticateRequest(request);
+      const user = await this.authenticateRequest(request);
+      if (user != undefined) {
+        const profile = await this.profileRepository.findOne({where: {userId: user[securityId]}});
+        if (profile?.organizationId != undefined) {
+          context.bind('USER_ORGANIZATION_ID').to(profile?.organizationId);
+          context.bind('USER_PROFILE_ID').to(profile?.id);
+        }
+      }
       const args = await this.parseParams(request, route);
       const result = await this.invoke(route, args);
 

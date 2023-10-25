@@ -1,7 +1,7 @@
 import {Entity, model, property} from '@loopback/repository';
 
 @model({
-  settings: {idInjection: false, mysql: {table: 'wharehouse'}}
+  settings: {idInjection: false, mysql: {table: 'warehouse'}}
 })
 export class Warehouse extends Entity {
   @property({

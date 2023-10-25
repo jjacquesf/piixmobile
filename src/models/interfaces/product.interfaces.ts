@@ -4,8 +4,12 @@ export interface IProductMedia {
   mediaType: number;
   order: number;
   path: string;
-  url: string;
   id: number;
+}
+
+export interface IProductWarehouseStock {
+  name: string;
+  stock: number;
 }
 
 export interface IProduct {
@@ -20,5 +24,6 @@ export interface IProduct {
   sku: string;
   status: number;
   updated: string | null;
-  files: IProductMedia[]
+  files: IProductMedia[];
+  stock: IProductWarehouseStock[]
 }
