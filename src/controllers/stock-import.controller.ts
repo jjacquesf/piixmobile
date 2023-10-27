@@ -196,7 +196,7 @@ export class StockImportController {
                             type == StockMovementTypeSpanish.IN
                               ? StockMovementType.IN
                               : type == StockMovementTypeSpanish.OUT
-                                ? StockMovementType.IN
+                                ? StockMovementType.OUT
                                 : type == StockMovementTypeSpanish.SET
                                   ? StockMovementType.SET
                                   : undefined;
