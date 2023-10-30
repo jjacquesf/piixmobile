@@ -3,6 +3,7 @@ import {Interceptor, inject, intercept} from '@loopback/core';
 import {
   Count,
   CountSchema,
+  DataObject,
   Filter,
   FilterExcludingWhere,
   Where,
@@ -24,7 +25,6 @@ import {AuthInterceptor} from '../interceptors';
 import {BranchOffice} from '../models';
 import {BranchOfficeRepository, WarehouseRepository} from '../repositories';
 
-// TODO: Create interceptor for unique branch office name validation in the same organization
 const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
   const repo = await invocationCtx.get<BranchOfficeRepository>(BranchOfficeRepository.BindingKey);
   const orgId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
@@ -65,11 +65,55 @@ const validateNoWarehouses: Interceptor = async (invocationCtx, next) => {
   return result;
 };
 
+const validatBranchOfficeUniqueName: Interceptor = async (invocationCtx, next) => {
+  const repo = await invocationCtx.get<BranchOfficeRepository>(BranchOfficeRepository.BindingKey);
+  const orgId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
+
+  let data: DataObject<BranchOffice>;
+  let id: number | undefined = undefined;
+
+  if (invocationCtx.args.length == 2) {
+    id = invocationCtx.args[0];
+    data = invocationCtx.args[1] || {};
+  } else {
+    data = invocationCtx.args[0] || {};
+  }
+
+  const businessName = data?.businessName || '';
+  if (businessName.length == 0) {
+    throw new HttpErrors[422]('La razón social es obligatoria');
+  }
+
+  let filter: Filter<BranchOffice> = {
+    where: {
+      ...(id != undefined ? {
+        id: {
+          neq: id
+        }
+      } : {}),
+      businessName: {
+        like: businessName.trim()
+      },
+      organizationId: orgId
+    }
+  };
+
+  const model = await repo.findOne(filter);
+  if (model != null) {
+    throw new HttpErrors[422]('Ya existe una sucursal con la misma razón social.');
+  }
+
+  const result = await next();
+  return result;
+};
+
 @authenticate('jwt')
 @intercept(
   AuthInterceptor.BINDING_KEY
 )
 export class BranchOfficeController {
+  public static BranchOfficeBindingKey = 'BranchOfficeController.BranchOfficeKey';
+
   constructor(
     @inject('USER_ORGANIZATION_ID') public organizationId: number,
     @repository(BranchOfficeRepository)
@@ -77,6 +121,7 @@ export class BranchOfficeController {
   ) { }
 
   @post('/branch-offices')
+  @intercept(validatBranchOfficeUniqueName)
   @response(200, {
     description: 'BranchOffice model instance',
     content: {'application/json': {schema: getModelSchemaRef(BranchOffice)}},
@@ -136,27 +181,6 @@ export class BranchOfficeController {
     });
   }
 
-  @patch('/branch-offices')
-  @response(200, {
-    description: 'BranchOffice PATCH success count',
-    content: {'application/json': {schema: CountSchema}},
-  })
-  async updateAll(
-    @requestBody({
-      content: {
-        'application/json': {
-          schema: getModelSchemaRef(BranchOffice, {partial: true}),
-        },
-      },
-    })
-    branchOffice: BranchOffice,
-    @param.where(BranchOffice) where?: Where<BranchOffice>,
-  ): Promise<Count> {
-
-    Object.assign(branchOffice, {organizationId: this.organizationId});
-    return this.branchOfficeRepository.updateAll(branchOffice, where);
-  }
-
   @intercept(validateBranchOfficeExists)
   @get('/branch-offices/{id}')
   @response(200, {
@@ -176,6 +200,7 @@ export class BranchOfficeController {
   }
 
   @intercept(validateBranchOfficeExists)
+  @intercept(validatBranchOfficeUniqueName)
   @patch('/branch-offices/{id}')
   @response(204, {
     description: 'BranchOffice PATCH success',
@@ -196,6 +221,7 @@ export class BranchOfficeController {
   }
 
   @intercept(validateBranchOfficeExists)
+  @intercept(validatBranchOfficeUniqueName)
   @put('/branch-offices/{id}')
   @response(204, {
     description: 'BranchOffice PUT success',
