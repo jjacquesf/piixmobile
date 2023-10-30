@@ -9,3 +9,5 @@ export * from './stock-count.repository';
 export * from './stock-movement.repository';
 export * from './warehouse.repository';
 
+export * from './price-list-price.repository';
+export * from './price-list.repository';
