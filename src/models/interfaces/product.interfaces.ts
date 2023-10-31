@@ -12,6 +12,12 @@ export interface IProductWarehouseStock {
   stock: number;
 }
 
+export interface IProductPrice {
+  priceListId: number;
+  name: string;
+  price: number;
+}
+
 export interface IProduct {
   id: number;
   brand: string;
@@ -25,5 +31,6 @@ export interface IProduct {
   status: number;
   updated: string | null;
   files: IProductMedia[];
-  stock: IProductWarehouseStock[]
+  stock: IProductWarehouseStock[],
+  prices: IProductPrice[],
 }

@@ -2,10 +2,11 @@ import {inject, service} from '@loopback/core';
 import {DefaultCrudRepository, Filter, RepositoryBindings, repository} from '@loopback/repository';
 import {DbDataSource} from '../datasources';
 import {Media, Organization, Product, ProductRelations} from '../models';
-import {IProduct, IProductMedia, IProductWarehouseStock} from '../models/interfaces';
+import {IProduct, IProductMedia, IProductPrice, IProductWarehouseStock} from '../models/interfaces';
 import {S3Service} from '../services';
 import {MediaRepository} from './media.repository';
 import {OrganizationRepository} from './organization.repository';
+import {PriceListPriceRepository} from './price-list-price.repository';
 import {WarehouseRepository} from './warehouse.repository';
 
 export class ProductRepository extends DefaultCrudRepository<
@@ -19,6 +20,7 @@ export class ProductRepository extends DefaultCrudRepository<
     @repository(OrganizationRepository) public organizationRepository: OrganizationRepository,
     @repository(WarehouseRepository) public warehouseRepository: WarehouseRepository,
     @repository(MediaRepository) public mediaRepository: MediaRepository,
+    @repository(PriceListPriceRepository) public priceListPriceRepository: PriceListPriceRepository,
     @service(S3Service) private s3: S3Service
   ) {
     super(Product, dataSource);
@@ -77,6 +79,20 @@ export class ProductRepository extends DefaultCrudRepository<
   }
 
 
+  public getProductPrice = async (product: Product): Promise<IProductPrice[]> => {
+    const data: IProductPrice[] = await this.priceListPriceRepository.execute(`SELECT
+                                                                                      price_list.id AS priceListId,
+                                                                                      price_list.name,
+                                                                                      price_list_price.price
+                                                                                    FROM
+                                                                                        price_list_price LEFT JOIN price_list ON price_list_price.price_list_id = price_list.id
+                                                                                    WHERE
+                                                                                        price_list_price.organization_id = ${product.organizationId}
+                                                                                        and product_id = ${product.id}`) as unknown as IProductPrice[];
+    return data;
+  }
+
+
   public findBySku = (sku: string, org: Organization): Promise<Product | null> => {
     const filter: Filter<Product> = {
       where: {
@@ -95,6 +111,7 @@ export class ProductRepository extends DefaultCrudRepository<
       ...model.toJSON(),
       files: await this.getProductMedia(model, fullMedia ? undefined : 1),
       stock: await this.getProductStock(model),
+      prices: await this.getProductPrice(model)
     } as IProduct
   }
 
