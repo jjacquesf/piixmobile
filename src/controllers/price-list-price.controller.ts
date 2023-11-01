@@ -1,5 +1,5 @@
 import {authenticate} from '@loopback/authentication';
-import {Binding, inject, intercept, Interceptor} from '@loopback/core';
+import {Binding, inject, intercept, Interceptor, InvocationContext, Next} from '@loopback/core';
 import {
   Count,
   CountSchema,
@@ -8,6 +8,7 @@ import {
   Where
 } from '@loopback/repository';
 import {
+  del,
   getModelSchemaRef,
   param,
   patch,
@@ -19,19 +20,17 @@ import {
 import {PriceList, PriceListPrice, Product} from '../models';
 import {PriceListPriceRepository, PriceListRepository, ProductRepository} from '../repositories';
 
-const validatePriceListExists: Interceptor = async (invocationCtx, next) => {
+const _validatePriceListExist = async (invocationCtx: InvocationContext, next: Next, id: number) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
   const organizationId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
   const repo = await invocationCtx.get<PriceListRepository>(PriceListRepository.BindingKey);
-
-  const data: PriceListPrice = invocationCtx.args[0] || {};
 
   const filter: Filter<PriceList> = {
     where: {
       organizationId: organizationId
     }
   };
-  const model = await repo.findById(data.priceListId, filter);
+  const model = await repo.findById(id, filter);
 
   const binding = Binding
     .bind<PriceList>(PriceListPriceController.PriceListBindingKey)
@@ -40,21 +39,20 @@ const validatePriceListExists: Interceptor = async (invocationCtx, next) => {
 
   const result = await next();
   return result;
-};
 
-const validateProductExists: Interceptor = async (invocationCtx, next) => {
+}
+
+const _validateProductExists = async (invocationCtx: InvocationContext, next: Next, id: number) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
   const organizationId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
   const repo = await invocationCtx.get<ProductRepository>(ProductRepository.BindingKey);
-
-  const data: PriceListPrice = invocationCtx.args[0] || {};
 
   const filter: Filter<PriceList> = {
     where: {
       organizationId: organizationId
     }
   };
-  const model = await repo.findById(data.productId, filter);
+  const model = await repo.findById(id, filter);
 
   const binding = Binding
     .bind<Product>(PriceListPriceController.ProductBindingKey)
@@ -65,6 +63,27 @@ const validateProductExists: Interceptor = async (invocationCtx, next) => {
   return result;
 };
 
+
+const validatePriceListExists: Interceptor = async (invocationCtx, next) => {
+  const data: PriceListPrice = invocationCtx.args[0] || {};
+  return await _validatePriceListExist(invocationCtx, next, data.priceListId);
+};
+
+const validateProductExists: Interceptor = async (invocationCtx, next) => {
+  const data: PriceListPrice = invocationCtx.args[0] || {};
+  return await _validateProductExists(invocationCtx, next, data.productId);
+};
+
+
+const validatePriceListExistsById: Interceptor = async (invocationCtx, next) => {
+  const priceListId: number = invocationCtx.args[0] || 0;
+  return await _validatePriceListExist(invocationCtx, next, priceListId);
+};
+
+const validateProductExistsById: Interceptor = async (invocationCtx, next) => {
+  const productId: number = invocationCtx.args[1] || 0;
+  return await _validateProductExists(invocationCtx, next, productId);
+};
 
 @authenticate('jwt')
 export class PriceListPriceController {
@@ -85,7 +104,7 @@ export class PriceListPriceController {
     description: 'PriceListPrice PATCH success count',
     content: {'application/json': {schema: CountSchema}},
   })
-  async price(
+  async set(
     @requestBody({
       content: {
         'application/json': {
@@ -98,18 +117,10 @@ export class PriceListPriceController {
         },
       },
     })
-    priceListPrice: Exclude<PriceListPrice, 'id,updated,created'>,
-    @param.where(PriceListPrice) where?: Where<PriceListPrice>,
+    priceListPrice: Exclude<PriceListPrice, 'id,updated,created'>
   ): Promise<Count> {
     const priceList = await this.requestCtx.get<PriceList>(PriceListPriceController.PriceListBindingKey);
     const product = await this.requestCtx.get<Product>(PriceListPriceController.ProductBindingKey);
-
-    where = {
-      ...where,
-      organizationId: this.organizationId,
-      priceListId: priceList.id,
-      productId: product.id,
-    }
 
     const filter: Filter<PriceListPrice> = {
       where: {
@@ -135,4 +146,26 @@ export class PriceListPriceController {
     return Promise.resolve({count: 1});
   }
 
+  @intercept(validatePriceListExistsById)
+  @intercept(validateProductExistsById)
+  @del('/price-lists/price/{priceListId}/{productId}')
+  @response(200, {
+    description: 'PriceListPrice DELETE success count',
+    content: {'application/json': {schema: CountSchema}},
+  })
+  async delete(
+    @param.path.number('priceListId') priceListId: number,
+    @param.path.number('productId') productId: number
+  ): Promise<Count> {
+    const priceList = await this.requestCtx.get<PriceList>(PriceListPriceController.PriceListBindingKey);
+    const product = await this.requestCtx.get<Product>(PriceListPriceController.ProductBindingKey);
+
+    const filter: Where<PriceListPrice> = {
+      organizationId: this.organizationId,
+      priceListId: priceList.id,
+      productId: product.id,
+    }
+
+    return await this.priceListPriceRepository.deleteAll(filter);
+  }
 }
