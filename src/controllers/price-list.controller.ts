@@ -1,9 +1,11 @@
 import {authenticate} from '@loopback/authentication';
 import {Binding, Interceptor, inject, intercept} from '@loopback/core';
 import {
+  DataObject,
   DefaultTransactionalRepository,
   Filter,
   FilterExcludingWhere,
+  Where,
   repository
 } from '@loopback/repository';
 import {
@@ -77,8 +79,21 @@ export class PriceListController {
     })
     priceList: Omit<PriceList, 'id,organizationId'>,
   ): Promise<PriceList> {
+
+    const repo = new DefaultTransactionalRepository(PriceList, this.priceListRepository.dataSource);
+    const tx = await repo.beginTransaction();
+
     Object.assign(priceList, {organizationId: this.organizationId});
-    return this.priceListRepository.create(priceList);
+    const res = await this.priceListRepository.create(priceList, {transaction: tx});
+
+    if (res.isDefault == true) {
+      const data: DataObject<PriceList> = {isDefault: false}
+      const where: Where<PriceList> = {organizationId: this.organizationId, id: {neq: res.id}};
+      await this.priceListRepository.updateAll(data, where, {transaction: tx});
+    }
+
+    await tx.commit();
+    return res;
   }
 
   @get('/price-lists')
@@ -139,7 +154,20 @@ export class PriceListController {
     })
     priceList: Omit<PriceList, 'id,organizationId'>,
   ): Promise<void> {
-    await this.priceListRepository.updateById(id, priceList);
+
+    const repo = new DefaultTransactionalRepository(PriceList, this.priceListRepository.dataSource);
+    const tx = await repo.beginTransaction();
+
+    const res = await this.priceListRepository.updateById(id, priceList, {transaction: tx});
+
+    if (priceList.isDefault == true) {
+      const data: DataObject<PriceList> = {isDefault: false}
+      const where: Where<PriceList> = {organizationId: this.organizationId, id: {neq: id}};
+      await this.priceListRepository.updateAll(data, where, {transaction: tx});
+    }
+
+    await tx.commit();
+    return res;
   }
 
   @intercept(validatePriceListExists)
@@ -152,10 +180,10 @@ export class PriceListController {
     const tx = await repo.beginTransaction();
 
     this.priceListPriceRepository.deleteAll({priceListId: id}, {transaction: tx});
-    const movement = await this.priceListRepository.deleteById(id, {transaction: tx});
+    const res = await this.priceListRepository.deleteById(id, {transaction: tx});
 
     await tx.commit();
-    return movement;
+    return res;
   }
 
 }
