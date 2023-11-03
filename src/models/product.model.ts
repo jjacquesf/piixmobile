@@ -121,6 +121,13 @@ export class Product extends Entity {
   })
   updated: string;
 
+  @property({
+    type: 'number',
+    required: true,
+    mysql: {columnName: 'prices', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'N', generated: 0},
+  })
+  prices: number;
+
   // Define well-known properties here
 
   // Indexer property to allow additional data

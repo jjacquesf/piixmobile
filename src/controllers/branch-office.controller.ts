@@ -70,7 +70,7 @@ const _validateProductExists = async (invocationCtx: InvocationContext, next: Ne
   reqCtx.add(binding);
 };
 
-const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
+export const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
   const id: number = invocationCtx.args[0] || 0;
   _validateBranchOfficeExists(invocationCtx, next, id);
 

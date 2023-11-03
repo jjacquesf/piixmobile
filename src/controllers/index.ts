@@ -9,3 +9,4 @@ export * from './warehouse.controller';
 
 export * from './price-list.controller';
 export * from './price-list-price.controller';
+export * from './pos.controller';

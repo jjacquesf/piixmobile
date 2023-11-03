@@ -3,6 +3,7 @@ import {Binding, inject, intercept, Interceptor, InvocationContext, Next} from '
 import {
   Count,
   CountSchema,
+  DefaultTransactionalRepository,
   Filter,
   repository,
   Where
@@ -63,7 +64,6 @@ const _validateProductExists = async (invocationCtx: InvocationContext, next: Ne
   return result;
 };
 
-
 const validatePriceListExists: Interceptor = async (invocationCtx, next) => {
   const data: PriceListPrice = invocationCtx.args[0] || {};
   return await _validatePriceListExist(invocationCtx, next, data.priceListId);
@@ -73,7 +73,6 @@ const validateProductExists: Interceptor = async (invocationCtx, next) => {
   const data: PriceListPrice = invocationCtx.args[0] || {};
   return await _validateProductExists(invocationCtx, next, data.productId);
 };
-
 
 const validatePriceListExistsById: Interceptor = async (invocationCtx, next) => {
   const priceListId: number = invocationCtx.args[0] || 0;
@@ -95,6 +94,8 @@ export class PriceListPriceController {
     @inject('USER_ORGANIZATION_ID') public organizationId: number,
     @repository(PriceListPriceRepository)
     public priceListPriceRepository: PriceListPriceRepository,
+    @repository(ProductRepository)
+    public productRepository: ProductRepository,
   ) { }
 
   @intercept(validatePriceListExists)
@@ -132,16 +133,25 @@ export class PriceListPriceController {
 
     const price = await this.priceListPriceRepository.findOne(filter);
 
+
+    const repo = new DefaultTransactionalRepository(PriceListPrice, this.priceListPriceRepository.dataSource);
+    const tx = await repo.beginTransaction();
+
     if (price != null) {
       await this.priceListPriceRepository.execute(
         'UPDATE `price_list_price` SET `price`=? WHERE `id`=?',
-        [priceListPrice.price, price.id]
+        [priceListPrice.price, price.id],
+        {transaction: tx}
       );
       return Promise.resolve({count: 1});
     }
 
     Object.assign(priceListPrice, {organizationId: this.organizationId});
-    await this.priceListPriceRepository.create(priceListPrice);
+    await this.priceListPriceRepository.create(priceListPrice, {transaction: tx});
+
+    await this.productRepository.updateById(product.id, {prices: product.prices + 1}, {transaction: tx});
+
+    await tx.commit();
 
     return Promise.resolve({count: 1});
   }
@@ -166,6 +176,14 @@ export class PriceListPriceController {
       productId: product.id,
     }
 
-    return await this.priceListPriceRepository.deleteAll(filter);
+    const repo = new DefaultTransactionalRepository(PriceListPrice, this.priceListPriceRepository.dataSource);
+    const tx = await repo.beginTransaction();
+
+    const res = await this.priceListPriceRepository.deleteAll(filter, {transaction: tx});
+
+    await this.productRepository.updateById(product.id, {prices: product.prices - res.count}, {transaction: tx});
+
+    await tx.commit();
+    return res;
   }
 }

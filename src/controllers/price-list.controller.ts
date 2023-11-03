@@ -9,6 +9,7 @@ import {
   repository
 } from '@loopback/repository';
 import {
+  HttpErrors,
   RequestContext,
   RestBindings,
   del,
@@ -20,7 +21,7 @@ import {
   requestBody,
   response
 } from '@loopback/rest';
-import {PriceList} from '../models';
+import {PriceList, PriceListPrice} from '../models';
 import {PriceListPriceRepository, PriceListRepository, ProductRepository} from '../repositories';
 
 const validatePriceListExists: Interceptor = async (invocationCtx, next) => {
@@ -179,7 +180,19 @@ export class PriceListController {
     const repo = new DefaultTransactionalRepository(PriceList, this.priceListRepository.dataSource);
     const tx = await repo.beginTransaction();
 
-    this.priceListPriceRepository.deleteAll({priceListId: id}, {transaction: tx});
+    const where: Where<PriceList> = {id: id, organizationId: this.organizationId};
+    const exists = await this.priceListRepository.findOne({where: {...where, isDefault: true}});
+    if (exists != null) {
+      throw new HttpErrors[400]('No se puede eliminar la lista de precios por default.');
+    }
+
+    const pricesWhere: Where<PriceListPrice> = {priceListId: id, organizationId: this.organizationId};
+    const prices = await this.priceListPriceRepository.find({where: {...pricesWhere}});
+    await this.priceListPriceRepository.deleteAll(pricesWhere, {transaction: tx});
+    for (let i = 0; i < prices.length; i++) {
+      const product = await this.productRepository.findById(prices[i].productId);
+      await this.productRepository.updateById(prices[i].productId, {prices: product.prices - 1}, {transaction: tx});
+    }
     const res = await this.priceListRepository.deleteById(id, {transaction: tx});
 
     await tx.commit();
