@@ -10,9 +10,10 @@ import {
   repository
 } from '@loopback/repository';
 import {HttpErrors, Request, RequestContext, Response, RestBindings, del, get, getModelSchemaRef, param, patch, post, put, requestBody, response} from '@loopback/rest';
-import {EntityType, Media, Organization, Product, StockCount} from '../models';
+import {EntityType, FeaturedProduct, Media, Organization, PriceListPrice, Product, StockCount, StockMovement} from '../models';
 import {IProduct} from '../models/interfaces';
-import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository, StockCountRepository, StockMovementRepository, WarehouseRepository} from '../repositories';
+import {MediaRepository, OrganizationRepository, PriceListPriceRepository, ProductCategoryRepository, ProductRepository, StockCountRepository, StockMovementRepository, WarehouseRepository} from '../repositories';
+import {FeaturedProductRepository} from '../repositories/featured-product.repository';
 
 const _validateOrganizationExists = async (invocationCtx: InvocationContext, next: Next, id: number) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
@@ -109,7 +110,10 @@ export class ProductController {
     public stockMovementRepository: StockMovementRepository,
     @repository(WarehouseRepository)
     public warehouseRepository: WarehouseRepository,
-
+    @repository(FeaturedProductRepository)
+    public featuredProductRepository: FeaturedProductRepository,
+    @repository(PriceListPriceRepository)
+    public priceListPriceRepository: PriceListPriceRepository,
   ) { }
 
 
@@ -360,11 +364,13 @@ export class ProductController {
     }
     await this.mediaRepository.deleteAll(mediaWhere, {transaction: tx});
 
-    const stockWhere: Where<StockCount> = {
+    const where: Where<StockCount | StockMovement | FeaturedProduct | PriceListPrice> = {
       productId: prod.id
     }
-    await this.stockCountRepository.deleteAll(stockWhere, {transaction: tx});
-    await this.stockMovementRepository.deleteAll(stockWhere, {transaction: tx});
+    await this.stockCountRepository.deleteAll(where, {transaction: tx});
+    await this.stockMovementRepository.deleteAll(where, {transaction: tx});
+    await this.featuredProductRepository.deleteAll(where, {transaction: tx});
+    await this.priceListPriceRepository.deleteAll(where, {transaction: tx});
 
     await tx.commit();
   }
