@@ -1,5 +1,5 @@
 import {authenticate} from '@loopback/authentication';
-import {Binding, Interceptor, inject, intercept} from '@loopback/core';
+import {Binding, Interceptor, InvocationContext, Next, inject, intercept} from '@loopback/core';
 import {
   DefaultTransactionalRepository,
   Entity,
@@ -14,10 +14,9 @@ import {EntityType, Media, Organization, Product, StockCount} from '../models';
 import {IProduct} from '../models/interfaces';
 import {MediaRepository, OrganizationRepository, ProductCategoryRepository, ProductRepository, StockCountRepository, StockMovementRepository, WarehouseRepository} from '../repositories';
 
-const validateOrganizationExists: Interceptor = async (invocationCtx, next) => {
+const _validateOrganizationExists = async (invocationCtx: InvocationContext, next: Next, id: number) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
   const repo = await invocationCtx.get<OrganizationRepository>(OrganizationRepository.BindingKey);
-  const id: number = invocationCtx.args[0] || 0;
 
   const model = await repo.findById(id);
 
@@ -30,12 +29,11 @@ const validateOrganizationExists: Interceptor = async (invocationCtx, next) => {
   return result;
 };
 
-const validateProductExists: Interceptor = async (invocationCtx, next) => {
+const _validateProductExists = async (invocationCtx: InvocationContext, next: Next, id: number) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
   const org = await reqCtx.get<Organization>(ProductController.OrganizationBindingKey);
   const repo = await invocationCtx.get<ProductRepository>(ProductRepository.BindingKey);
 
-  const id: number = invocationCtx.args[1] || 0;
   const orgFiter = repo.getOrganizationFilter(org);
 
   const model = await repo.findById(id, orgFiter);
@@ -47,6 +45,16 @@ const validateProductExists: Interceptor = async (invocationCtx, next) => {
 
   const result = await next();
   return result;
+};
+
+const validateOrganizationExists: Interceptor = async (invocationCtx, next) => {
+  const id: number = invocationCtx.args[0] || 0;
+  return _validateOrganizationExists(invocationCtx, next, id);
+};
+
+const validateProductExists: Interceptor = async (invocationCtx, next) => {
+  const id: number = invocationCtx.args[1] || 0;
+  return _validateProductExists(invocationCtx, next, id)
 };
 
 const validateEmptyProductStock: Interceptor = async (invocationCtx, next) => {
@@ -80,10 +88,8 @@ export class Sort extends Entity {
 
 @authenticate('jwt')
 export class ProductController {
-
   public static OrganizationBindingKey = 'ProductController.OrganizationKey';
   public static ProductBindingKey = 'ProductController.ProductKey';
-
 
   constructor(
     @inject(RestBindings.Http.CONTEXT) private requestCtx: RequestContext,

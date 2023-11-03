@@ -1,5 +1,5 @@
 import {authenticate} from '@loopback/authentication';
-import {Interceptor, inject, intercept} from '@loopback/core';
+import {Binding, Interceptor, InvocationContext, Next, inject, intercept} from '@loopback/core';
 import {
   Count,
   CountSchema,
@@ -11,6 +11,7 @@ import {
 } from '@loopback/repository';
 import {
   HttpErrors,
+  RestBindings,
   del,
   get,
   getModelSchemaRef,
@@ -22,13 +23,13 @@ import {
   response
 } from '@loopback/rest';
 import {AuthInterceptor} from '../interceptors';
-import {BranchOffice} from '../models';
-import {BranchOfficeRepository, WarehouseRepository} from '../repositories';
+import {BranchOffice, FeaturedProduct, Product} from '../models';
+import {BranchOfficeRepository, ProductRepository, WarehouseRepository} from '../repositories';
+import {FeaturedProductRepository} from '../repositories/featured-product.repository';
 
-const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
+const _validateBranchOfficeExists = async (invocationCtx: InvocationContext, next: Next, id: number) => {
   const repo = await invocationCtx.get<BranchOfficeRepository>(BranchOfficeRepository.BindingKey);
   const orgId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
-  const id: number = invocationCtx.args[0] || 0;
 
   const filter: Filter<BranchOffice> = {
     where: {
@@ -41,6 +42,37 @@ const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
   if (model == null) {
     throw new HttpErrors[422]('La sucursal especificada no existe en la organización.');
   }
+
+  // const result = await next();
+  // return result;
+};
+
+const _validateProductExists = async (invocationCtx: InvocationContext, next: Next, id: number) => {
+  const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
+  const repo = await invocationCtx.get<ProductRepository>(ProductRepository.BindingKey);
+  const orgId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
+
+  const filter: Filter<BranchOffice> = {
+    where: {
+      id,
+      organizationId: orgId
+    }
+  };
+
+  const model = await repo.findOne(filter);
+  if (model == null) {
+    throw new HttpErrors[422]('El producto especificado no existe en la organización.');
+  }
+
+  const binding = Binding
+    .bind<Product>(BranchOfficeController.ProductBindingKey)
+    .to(model);
+  reqCtx.add(binding);
+};
+
+const validateBranchOfficeExists: Interceptor = async (invocationCtx, next) => {
+  const id: number = invocationCtx.args[0] || 0;
+  _validateBranchOfficeExists(invocationCtx, next, id);
 
   const result = await next();
   return result;
@@ -107,17 +139,29 @@ const validatBranchOfficeUniqueName: Interceptor = async (invocationCtx, next) =
   return result;
 };
 
+const validateProductExists: Interceptor = async (invocationCtx, next) => {
+  const id: number = invocationCtx.args[1] || 0;
+  _validateProductExists(invocationCtx, next, id);
+
+  const result = await next();
+  return result;
+};
+
+
 @authenticate('jwt')
 @intercept(
   AuthInterceptor.BINDING_KEY
 )
 export class BranchOfficeController {
   public static BranchOfficeBindingKey = 'BranchOfficeController.BranchOfficeKey';
+  public static ProductBindingKey = 'ProductController.ProductKey';
 
   constructor(
     @inject('USER_ORGANIZATION_ID') public organizationId: number,
     @repository(BranchOfficeRepository)
     public branchOfficeRepository: BranchOfficeRepository,
+    @repository(FeaturedProductRepository)
+    public featuredProductRepository: FeaturedProductRepository,
   ) { }
 
   @post('/branch-offices')
@@ -241,5 +285,49 @@ export class BranchOfficeController {
   })
   async deleteById(@param.path.number('id') id: number): Promise<void> {
     await this.branchOfficeRepository.deleteById(id);
+  }
+
+  @intercept(validateBranchOfficeExists)
+  @intercept(validateProductExists)
+  @post('/branch-offices/featured-product/{id}/{productId}')
+  @response(200, {
+    description: 'FeaturedProduct',
+    content: {'application/json': {schema: FeaturedProduct}},
+  })
+  async createFeaturedProduct(
+    @param.path.number('id') id: number,
+    @param.path.number('productId') productId: number
+  ): Promise<FeaturedProduct> {
+    const data = {
+      organizationId: this.organizationId,
+      branchOfficeId: id,
+      productId: productId,
+    }
+    const where: Where<FeaturedProduct> = data;
+    const featured = await this.featuredProductRepository.findOne({where: where});
+    if (featured) {
+      throw new HttpErrors[400]('El producto ya es destacado en la sucursal.');
+    }
+
+    return await this.featuredProductRepository.create(data);
+  }
+
+  @intercept(validateBranchOfficeExists)
+  @intercept(validateProductExists)
+  @del('/branch-offices/featured-product/{id}/{productId}')
+  @response(200, {
+    description: 'FeaturedProduct DELETE success count',
+    content: {'application/json': {schema: CountSchema}},
+  })
+  async deleteFeaturedProduct(
+    @param.path.number('id') id: number,
+    @param.path.number('productId') productId: number
+  ): Promise<Count> {
+    const where: Where<FeaturedProduct> = {
+      organizationId: this.organizationId,
+      branchOfficeId: id,
+      productId: productId,
+    }
+    return await this.featuredProductRepository.deleteAll(where);
   }
 }
