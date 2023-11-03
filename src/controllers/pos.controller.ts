@@ -1,6 +1,6 @@
 import {authenticate} from '@loopback/authentication';
 import {inject, intercept} from '@loopback/core';
-import {property, repository} from '@loopback/repository';
+import {Filter, WhereBuilder, property, repository} from '@loopback/repository';
 import {
   getModelSchemaRef,
   param,
@@ -8,8 +8,10 @@ import {
   requestBody,
   response
 } from '@loopback/rest';
+import {Product} from '../models';
 import {IProduct} from '../models/interfaces';
 import {ProductRepository} from '../repositories';
+import {FeaturedProductRepository} from '../repositories/featured-product.repository';
 import {validateBranchOfficeExists} from './branch-office.controller';
 
 
@@ -18,7 +20,12 @@ export class PosFilterProducts {
     type: 'string',
     required: true,
   })
-  name: string;
+  query: string;
+
+  @property({
+    type: 'boolean'
+  })
+  featuredOnly?: boolean;
 }
 
 @authenticate('jwt')
@@ -28,15 +35,17 @@ export class PosController {
     public organizationId: number,
     @repository(ProductRepository)
     public productRepository: ProductRepository,
+    @repository(FeaturedProductRepository)
+    public featuredProductRepository: FeaturedProductRepository,
   ) { }
 
   @intercept(validateBranchOfficeExists)
-  @post('/filter-products/{branchOfficeId}')
+  @post('/pos/filter-products/{branchOfficeId}')
   @response(200, {
     description: 'IProduct model instance array',
   })
   async create(
-    @param.path.number('organizationId') branchOfficeId: number,
+    @param.path.number('branchOfficeId') branchOfficeId: number,
     @requestBody({
       content: {
         'application/json': {
@@ -46,9 +55,51 @@ export class PosController {
         },
       },
     })
-    filter: PosFilterProducts,
+    filterData: PosFilterProducts,
   ): Promise<IProduct[]> {
-    return Promise.resolve([]);
+
+    let ids: number[] = [];
+    if (filterData.featuredOnly === true) {
+      const featured = await this.featuredProductRepository.find({
+        fields: ['productId'],
+        where: {
+          organizationId: this.organizationId,
+          branchOfficeId: branchOfficeId,
+        }
+      });
+      ids = featured.map(data => data.productId)
+      if (ids.length == 0) {
+        ids.push(-1);
+      }
+    }
+
+    const whereBuilder = new WhereBuilder();
+    const where = whereBuilder
+      .and({
+        organizationId: this.organizationId,
+        prices: {gt: 0},
+        ...(ids.length != 0 ? {id: {inq: ids}} : {})
+      }, {
+        or: [
+          {internalName: {like: `%${filterData.query}%`}},
+          {externalName: {like: `%${filterData.query}%`}},
+        ]
+      })
+      .build();
+
+    const filter: Filter<Product> = {
+      order: ['externalName ASC'],
+      where: where
+    };
+
+    const models = await this.productRepository.find(filter);
+
+    const data: IProduct[] = [];
+    for (let i = 0; i < models.length; i++) {
+      data.push(await this.productRepository.toJSON(models[i]));
+    }
+
+    return data;
   }
 
 }
