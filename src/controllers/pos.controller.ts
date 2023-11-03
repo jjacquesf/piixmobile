@@ -20,12 +20,12 @@ export class PosFilterProducts {
     type: 'string',
     required: true,
   })
-  query: string;
+  query?: string;
 
   @property({
     type: 'boolean'
   })
-  featuredOnly?: boolean;
+  featuredOnly: boolean;
 }
 
 @authenticate('jwt')
@@ -73,20 +73,23 @@ export class PosController {
       }
     }
 
-    const whereBuilder = new WhereBuilder();
-    const where = whereBuilder
-      .and({
-        organizationId: this.organizationId,
-        prices: {gt: 0},
-        ...(ids.length != 0 ? {id: {inq: ids}} : {})
-      }, {
-        or: [
-          {internalName: {like: `%${filterData.query}%`}},
-          {externalName: {like: `%${filterData.query}%`}},
-        ]
-      })
-      .build();
+    const domain = {
+      organizationId: this.organizationId,
+      prices: {gt: 0},
+      ...(ids.length != 0 ? {id: {inq: ids}} : {})
+    };
 
+    const whereBuilder = new WhereBuilder();
+    const query = filterData.query != undefined ? `%${filterData.query}%` : '%';
+    whereBuilder
+      .and(domain, {
+        or: [
+          {internalName: {like: query}},
+          {externalName: {like: query}},
+        ]
+      });
+
+    const where = whereBuilder.build();
     const filter: Filter<Product> = {
       order: ['externalName ASC'],
       where: where
