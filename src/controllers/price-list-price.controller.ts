@@ -143,6 +143,7 @@ export class PriceListPriceController {
         [priceListPrice.price, price.id],
         {transaction: tx}
       );
+      await tx.commit();
       return Promise.resolve({count: 1});
     }
 
