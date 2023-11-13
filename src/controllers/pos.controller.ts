@@ -1,11 +1,9 @@
 import {authenticate} from '@loopback/authentication';
 import {inject, intercept} from '@loopback/core';
-import {Filter, WhereBuilder, property, repository} from '@loopback/repository';
+import {Filter, WhereBuilder, repository} from '@loopback/repository';
 import {
-  getModelSchemaRef,
+  get,
   param,
-  post,
-  requestBody,
   response
 } from '@loopback/rest';
 import {Product} from '../models';
@@ -13,20 +11,6 @@ import {IProduct} from '../models/interfaces';
 import {ProductRepository} from '../repositories';
 import {FeaturedProductRepository} from '../repositories/featured-product.repository';
 import {validateBranchOfficeExists} from './branch-office.controller';
-
-
-export class PosFilterProducts {
-  @property({
-    type: 'string',
-    required: true,
-  })
-  query?: string;
-
-  @property({
-    type: 'boolean'
-  })
-  featuredOnly: boolean;
-}
 
 @authenticate('jwt')
 export class PosController {
@@ -40,26 +24,21 @@ export class PosController {
   ) { }
 
   @intercept(validateBranchOfficeExists)
-  @post('/pos/filter-products/{branchOfficeId}')
+  @get('/pos/filter-products/{branchOfficeId}')
   @response(200, {
     description: 'IProduct model instance array',
   })
   async create(
     @param.path.number('branchOfficeId') branchOfficeId: number,
-    @requestBody({
-      content: {
-        'application/json': {
-          schema: getModelSchemaRef(PosFilterProducts, {
-            title: 'PosFilterProducts'
-          }),
-        },
-      },
-    })
-    filterData: PosFilterProducts,
+    @param.query.string('query') query?: string,
+    @param.query.boolean('featured-only') featuredOnly?: boolean,
   ): Promise<IProduct[]> {
 
     let ids: number[] = [];
-    if (filterData.featuredOnly === true) {
+    query = query != undefined ? `%${query}%` : '%';
+    featuredOnly = featuredOnly == undefined ? false : featuredOnly;
+
+    if (featuredOnly === true) {
       const featured = await this.featuredProductRepository.find({
         fields: ['productId'],
         where: {
@@ -80,7 +59,6 @@ export class PosController {
     };
 
     const whereBuilder = new WhereBuilder();
-    const query = filterData.query != undefined ? `%${filterData.query}%` : '%';
     whereBuilder
       .and(domain, {
         or: [
