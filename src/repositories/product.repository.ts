@@ -67,14 +67,26 @@ export class ProductRepository extends DefaultCrudRepository<
 
   public getProductStock = async (product: Product): Promise<IProductWarehouseStock[]> => {
     const count: IProductWarehouseStock[] = await this.warehouseRepository.execute(`SELECT
-                                                                                        warehouse.name, SUM(stock) AS stock
+                                                                                        warehouse.branch_office_id as branchOfficeId,
+                                                                                        warehouse.id as warehouseId,
+                                                                                        branch_office.commercial_name as branchName,
+                                                                                        warehouse.name as warehouseName,
+                                                                                        SUM(stock) AS stock
                                                                                     FROM
-                                                                                        stock_count LEFT JOIN warehouse ON stock_count.warehouse_id = warehouse.id
+                                                                                        stock_count
+                                                                                    LEFT JOIN
+                                                                                        warehouse ON stock_count.warehouse_id = warehouse.id
+                                                                                    LEFT JOIN
+                                                                                        branch_office ON warehouse.branch_office_id = branch_office.id
                                                                                     WHERE
                                                                                         stock_count.organization_id = ${product.organizationId}
                                                                                         and product_id = ${product.id}
                                                                                     GROUP
-                                                                                        BY warehouse.name`) as unknown as IProductWarehouseStock[];
+                                                                                        BY
+                                                                                              warehouse.branch_office_id,
+                                                                                              warehouse.id,
+                                                                                              branch_office.commercial_name,
+                                                                                              warehouse.name`) as unknown as IProductWarehouseStock[];
     return count;
   }
 

@@ -1,5 +1,5 @@
 import {authenticate} from '@loopback/authentication';
-import {inject, intercept} from '@loopback/core';
+import {inject} from '@loopback/core';
 import {Filter, WhereBuilder, repository} from '@loopback/repository';
 import {
   get,
@@ -10,7 +10,6 @@ import {Product} from '../models';
 import {IProduct} from '../models/interfaces';
 import {ProductRepository} from '../repositories';
 import {FeaturedProductRepository} from '../repositories/featured-product.repository';
-import {validateBranchOfficeExists} from './branch-office.controller';
 
 @authenticate('jwt')
 export class PosController {
@@ -23,13 +22,11 @@ export class PosController {
     public featuredProductRepository: FeaturedProductRepository,
   ) { }
 
-  @intercept(validateBranchOfficeExists)
-  @get('/pos/filter-products/{branchOfficeId}')
+  @get('/pos/filter-products')
   @response(200, {
     description: 'IProduct model instance array',
   })
   async create(
-    @param.path.number('branchOfficeId') branchOfficeId: number,
     @param.query.string('query') query?: string,
     @param.query.boolean('featured-only') featuredOnly?: boolean,
   ): Promise<IProduct[]> {
@@ -43,7 +40,6 @@ export class PosController {
         fields: ['productId'],
         where: {
           organizationId: this.organizationId,
-          branchOfficeId: branchOfficeId,
         }
       });
       ids = featured.map(data => data.productId)

@@ -8,7 +8,10 @@ export interface IProductMedia {
 }
 
 export interface IProductWarehouseStock {
-  name: string;
+  branchOfficeId: number;
+  warehouseId: number;
+  branchOfficeName: string;
+  warehouseName: string;
   stock: number;
 }
 
