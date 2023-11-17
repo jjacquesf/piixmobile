@@ -24,6 +24,7 @@ import {
 } from '@loopback/rest';
 import {AuthInterceptor} from '../interceptors';
 import {BranchOffice, FeaturedProduct, Product} from '../models';
+import {IBranchOffice} from '../models/interfaces/branch-office.interface';
 import {BranchOfficeRepository, ProductRepository, WarehouseRepository} from '../repositories';
 import {FeaturedProductRepository} from '../repositories/featured-product.repository';
 
@@ -215,14 +216,25 @@ export class BranchOfficeController {
   })
   async find(
     @param.filter(BranchOffice) filter?: Filter<BranchOffice>,
-  ): Promise<BranchOffice[]> {
-    return this.branchOfficeRepository.find({
+  ): Promise<IBranchOffice[]> {
+    const rows = await this.branchOfficeRepository.find({
       ...filter,
       where: {
         ...(filter != undefined && filter.where != undefined ? filter.where : {}),
         organizationId: this.organizationId
       }
     });
+
+    const data: IBranchOffice[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      data.push({
+        ...rows[i].toJSON(),
+        warehouses: await this.branchOfficeRepository.countWarehouses(rows[0])
+      } as unknown as IBranchOffice)
+    }
+
+    return data;
   }
 
   @intercept(validateBranchOfficeExists)
@@ -272,10 +284,16 @@ export class BranchOfficeController {
   })
   async replaceById(
     @param.path.number('id') id: number,
-    @requestBody() branchOffice: BranchOffice,
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(BranchOffice, {partial: true}),
+        },
+      },
+    }) branchOffice: BranchOffice,
   ): Promise<void> {
     Object.assign(branchOffice, {organizationId: this.organizationId});
-    await this.branchOfficeRepository.replaceById(id, branchOffice);
+    await this.branchOfficeRepository.updateById(id, branchOffice);
   }
 
   @intercept(validateNoWarehouses)
