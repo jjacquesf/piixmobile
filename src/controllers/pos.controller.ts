@@ -65,16 +65,16 @@ const validateItems: Interceptor = async (invocationCtx, next) => {
 
   const branchOffice = await branchOfficeRepo.findByIdAndOwnerOrganization(organizationId, details.branchOfficeId);
   if (branchOffice == null) {
-    throw HttpErrors[401]('No estas autorizado para crear pedidos en la sucursal especificada.');
+    throw HttpErrors[400]('No existe la sucursal en la organizacion.');
   }
 
   const warehouse = await warehouseOfficeRepo.findByIdAndOwnerOrganization(organizationId, details.warehouseId);
   if (warehouse == null) {
-    throw HttpErrors[401]('No estas autorizado para crear pedidos en la sucursal especificada.');
+    throw HttpErrors[400]('El almacen no existe en la sucursal especificada.');
   }
 
   if (details.branchOfficeId != warehouse.branchOfficeId) {
-    throw HttpErrors[401]('El almacen especificado no pertenece a la sucursal selecionada.');
+    throw HttpErrors[400]('El almacen especificado no pertenece a la sucursal selecionada.');
   }
 
   let priceLists: PriceListPrice[] = [];
@@ -84,19 +84,19 @@ const validateItems: Interceptor = async (invocationCtx, next) => {
       // Validate item branch office
       const tmp = await branchOfficeRepo.findByIdAndOwnerOrganization(organizationId, details.items[index].branchOfficeId);
       if (tmp == null) {
-        throw HttpErrors[401](`No estas autorizado para crear pedidos en la sucursal especificada en la linea ${index + 1}.`);
+        throw HttpErrors[400](`No existe la sucursal en la organizacion para la linea ${index + 1}.`);
       }
 
       // Validate item warehouse
       const tmp2 = await warehouseOfficeRepo.findByIdAndOwnerOrganization(organizationId, details.items[index].warehouseId);
       if (tmp2 == null) {
-        throw HttpErrors[401](`No estas autorizado para crear pedidos en la sucursal especificada en la linea ${index + 1}.`);
+        throw HttpErrors[400](`El almacen no existe en la sucursal especificada para la linea ${index + 1}.`);
       }
     }
 
     // Validate item min qty
     if (details.items[index].qty <= 0) {
-      throw HttpErrors[401](`La cantidad debe ser mayor a cero en la linea ${index + 1}.`);
+      throw HttpErrors[400](`La cantidad debe ser mayor a cero en la linea ${index + 1}.`);
     }
 
     // Validate item product stock
@@ -109,7 +109,7 @@ const validateItems: Interceptor = async (invocationCtx, next) => {
     });
 
     if (tmp3 == null || tmp3.stock < details.items[index].qty) {
-      throw HttpErrors[401](`No hay existencias suficientes para el produco en la linea ${index + 1}.`);
+      throw HttpErrors[400](`No hay existencias suficientes para el produco en la linea ${index + 1}.`);
     }
 
     // Validate price list price
@@ -122,7 +122,7 @@ const validateItems: Interceptor = async (invocationCtx, next) => {
     });
 
     if (tmp4 == null) {
-      throw HttpErrors[401](`No hay un precio registrado para el producto en la linea ${index + 1}.`);
+      throw HttpErrors[400](`No hay un precio registrado para el producto en la linea ${index + 1}.`);
     }
 
     // Register pricelist price
