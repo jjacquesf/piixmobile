@@ -240,10 +240,20 @@ export class PosController {
 
     const profileId = await this.requestCtx.get<number>('USER_PROFILE_ID');
 
+    ;
     let total: number = 0;
     for (let index = 0; index < details.items.length; index++) {
       details.items[index].price = priceLists[index].price;
       total += details.items[index].qty * details.items[index].price;
+    }
+
+    let payments: number = 0
+    for (let index = 0; index < details.payments.length; index++) {
+      payments += details.payments[index].amount;
+    }
+
+    if (total > payments) {
+      throw new HttpErrors[400]('Los pagos registrados son menores al total del pedido.');
     }
 
     const repo = new DefaultTransactionalRepository(Sale, this.saleRepository.dataSource);
