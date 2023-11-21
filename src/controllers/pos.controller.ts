@@ -240,12 +240,18 @@ export class PosController {
 
     const profileId = await this.requestCtx.get<number>('USER_PROFILE_ID');
 
-    ;
+
+    if (details.shipping < 0) {
+      throw new HttpErrors[400]('El costo de envio no puede ser menor a cero.');
+    }
+
     let total: number = 0;
     for (let index = 0; index < details.items.length; index++) {
       details.items[index].price = priceLists[index].price;
       total += details.items[index].qty * details.items[index].price;
     }
+
+    total += details.shipping;
 
     let payments: number = 0
     for (let index = 0; index < details.payments.length; index++) {
