@@ -57,4 +57,15 @@ export class WarehouseRepository extends DefaultCrudRepository<
 
     return this.findOne(filter);
   }
+
+  public findByIdAndOwnerOrganization = (organizationId: number, id: number): Promise<Warehouse | null> => {
+    const filter: Filter<Warehouse> = {
+      where: {
+        organizationId: organizationId,
+        id: id
+      }
+    };
+
+    return this.findOne(filter);
+  }
 }

@@ -1,14 +1,15 @@
 // Uncomment these imports to begin using these cool features!
 
 import {authenticate} from '@loopback/authentication';
-import {Binding, Interceptor, inject, intercept} from '@loopback/core';
-import {DataObject, DefaultTransactionalRepository, Filter, repository} from '@loopback/repository';
+import {Binding, Interceptor, inject, intercept, service} from '@loopback/core';
+import {DataObject, Filter, repository} from '@loopback/repository';
 import {HttpErrors, RequestContext, RestBindings, getModelSchemaRef, post, requestBody, response} from '@loopback/rest';
 import {AuthInterceptor} from '../interceptors';
-import {Product, StockCount, StockMovement, StockMovementType, Warehouse} from '../models';
+import {Product, StockMovement, StockMovementType, Warehouse} from '../models';
 import {ProductRepository, WarehouseRepository} from '../repositories';
 import {StockCountRepository} from '../repositories/stock-count.repository';
 import {StockMovementRepository} from '../repositories/stock-movement.repository';
+import {StockMovementService} from '../services';
 
 const validateWarehouseOwnership: Interceptor = async (invocationCtx, next) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
@@ -83,84 +84,6 @@ const validateProductOwnership: Interceptor = async (invocationCtx, next) => {
   return result;
 };
 
-const validateStock: Interceptor = async (invocationCtx, next) => {
-  const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
-  const repo = await invocationCtx.get<StockCountRepository>(StockCountRepository.BindingKey);
-  const warehouse = await reqCtx.get<Warehouse>(StockMovementController.WarehouseBindingKey);
-  const data: DataObject<StockMovement> = invocationCtx.args[0] || {};
-
-  let count = await repo.findOne({
-    where: {
-      warehouseId: data.warehouseId,
-      productId: data.productId,
-    }
-  });
-
-  if (count == null) {
-    const cdata = new StockCount({
-      organizationId: warehouse.organizationId,
-      branchOfficeId: warehouse.branchOfficeId,
-      warehouseId: warehouse.id,
-      productId: data.productId,
-      stock: 0,
-    });
-    count = await repo.create(cdata);
-  }
-
-
-
-  const qty = data.qty || 0;
-  if (qty < 0) {
-    throw new HttpErrors[422]('La cantidad debe ser mayor o igual a cero.');
-  }
-
-  const s_before = count != null ? count.stock : 0;
-  let s_after = s_before;
-
-  switch (data.type) {
-    case StockMovementType.SET:
-      s_after = qty;
-      break;
-    case StockMovementType.IN:
-      s_after += qty;
-      if (qty < 0) {
-        throw new HttpErrors[422]('La cantidad debe ser mayor a cero.');
-      }
-      break;
-    case StockMovementType.OUT:
-      s_after -= qty;
-      if (s_after < 0) {
-        throw new HttpErrors[422]('La cantidad debe ser menor o igual a las existencias.');
-      }
-      break;
-  }
-
-  const stockCountBinding = Binding
-    .bind<StockCount>(StockMovementController.StockCountBindingKey)
-    .to(count);
-
-  const qtyBinding = Binding
-    .bind<number>(StockMovementController.QtyBindingKey)
-    .to(qty);
-
-  const beforeBinding = Binding
-    .bind<number>(StockMovementController.StockBeforeBindingKey)
-    .to(s_before);
-
-
-  const afterBinding = Binding
-    .bind<number>(StockMovementController.StockAfterBindingKey)
-    .to(s_after);
-
-  reqCtx.add(stockCountBinding);
-  reqCtx.add(qtyBinding);
-  reqCtx.add(beforeBinding);
-  reqCtx.add(afterBinding);
-
-  const result = await next();
-  return result;
-};
-
 @authenticate('jwt')
 @intercept(
   AuthInterceptor.BINDING_KEY
@@ -177,12 +100,12 @@ export class StockMovementController {
   constructor(
     @inject(RestBindings.Http.CONTEXT) private requestCtx: RequestContext,
     @repository(StockMovementRepository) public stockMovementRepository: StockMovementRepository,
-    @repository(StockCountRepository) public stockCountRepository: StockCountRepository) { }
+    @repository(StockCountRepository) public stockCountRepository: StockCountRepository,
+    @service(StockMovementService) private stockMovementService: StockMovementService) { }
 
   @intercept(validateStockMovementType)
   @intercept(validateWarehouseOwnership)
   @intercept(validateProductOwnership)
-  @intercept(validateStock)
   @post('/stock-movement')
   @response(200, {
     description: 'StockMovement model instance',
@@ -203,34 +126,19 @@ export class StockMovementController {
   ): Promise<StockMovement> {
 
     const profileId = await this.requestCtx.get<number>('USER_PROFILE_ID');
-    const stockCount = await this.requestCtx.get<StockCount>(StockMovementController.StockCountBindingKey);
     const warehouse = await this.requestCtx.get<Warehouse>(StockMovementController.WarehouseBindingKey);
-    const product = await this.requestCtx.get<Product>(StockMovementController.ProductBindingKey);
     const type = await this.requestCtx.get<number>(StockMovementController.TypeBindingKey);
-    const qty = await this.requestCtx.get<number>(StockMovementController.QtyBindingKey);
-    const s_before = await this.requestCtx.get<number>(StockMovementController.StockBeforeBindingKey);
-    const s_after = await this.requestCtx.get<number>(StockMovementController.StockAfterBindingKey);
 
-    const repo = new DefaultTransactionalRepository(StockMovement, this.stockMovementRepository.dataSource);
-    const tx = await repo.beginTransaction();
-
-    const movement = await this.stockMovementRepository.create({
+    const movement = await this.stockMovementService.create({
       profileId: profileId,
       organizationId: warehouse.organizationId,
       branchOfficeId: warehouse.branchOfficeId,
-      warehouseId: warehouse.id,
-      productId: product.id,
+      warehouseId: stockMovement.warehouseId,
+      productId: stockMovement.productId,
       type: type,
-      qty: qty,
-      stockBefore: s_before,
-      stockAfter: s_after,
+      qty: stockMovement.qty,
       lot: stockMovement.lot || '',
-    }, {transaction: tx});
-
-    Object.assign(stockCount, {stock: s_after});
-    await this.stockCountRepository.replaceById(stockCount.id, stockCount, {transaction: tx});
-
-    await tx.commit();
+    })
 
     return movement;
   }

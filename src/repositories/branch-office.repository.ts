@@ -43,6 +43,17 @@ export class BranchOfficeRepository extends DefaultCrudRepository<
     return this.findOne(filter);
   }
 
+  public findByIdAndOwnerOrganization = (organizationId: number, id: number): Promise<BranchOffice | null> => {
+    const filter: Filter<BranchOffice> = {
+      where: {
+        organizationId: organizationId,
+        id: id
+      }
+    };
+
+    return this.findOne(filter);
+  }
+
   public countWarehouses = async (branchOffice: BranchOffice): Promise<number> => {
     const data: IBranchOfficeWarehouseCount[] = await this.execute(`SELECT
                                                                           warehouse.branch_office_id AS branchOfficeId,
