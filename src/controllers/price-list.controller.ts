@@ -1,4 +1,5 @@
 import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {Binding, Interceptor, inject, intercept} from '@loopback/core';
 import {
   DataObject,
@@ -47,6 +48,7 @@ const validatePriceListExists: Interceptor = async (invocationCtx, next) => {
 };
 
 @authenticate('jwt')
+@authorize({allowedRoles: ['ADMIN']})
 export class PriceListController {
   public static OrganizationBindingKey = 'PriceListController.OrganizationKey';
   public static PriceListBindingKey = 'PriceListController.PriceListKey';

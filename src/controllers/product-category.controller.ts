@@ -1,4 +1,5 @@
 import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {inject} from '@loopback/core';
 import {
   Filter,
@@ -10,6 +11,7 @@ import {IProductCategory} from '../models/interfaces/product-category.interfaces
 import {OrganizationRepository, ProductCategoryRepository} from '../repositories';
 
 @authenticate('jwt')
+@authorize({allowedRoles: ['ADMIN']})
 export class ProductCategoryController {
   constructor(
     @inject(RestBindings.Http.REQUEST) private request: Request,

@@ -1,6 +1,7 @@
 // Uncomment these imports to begin using these cool features!
 
 import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {Binding, Interceptor, inject, intercept, service} from '@loopback/core';
 import {DataObject, Filter, repository} from '@loopback/repository';
 import {HttpErrors, RequestContext, RestBindings, getModelSchemaRef, post, requestBody, response} from '@loopback/rest';
@@ -85,6 +86,7 @@ const validateProductOwnership: Interceptor = async (invocationCtx, next) => {
 };
 
 @authenticate('jwt')
+@authorize({allowedRoles: ['ADMIN']})
 @intercept(
   AuthInterceptor.BINDING_KEY
 )

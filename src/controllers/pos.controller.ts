@@ -16,6 +16,7 @@ import Ajv from 'ajv';
 import {PriceListPrice, Product, Sale, SaleDetails, StockMovementType} from '../models';
 import {IProduct} from '../models/interfaces';
 
+import {authorize} from '@loopback/authorization';
 import {schemaSaleDetails} from '../models/schemas';
 import {BranchOfficeRepository, PriceListPriceRepository, ProductRepository, SaleRepository, StockCountRepository, WarehouseRepository} from '../repositories';
 import {FeaturedProductRepository} from '../repositories/featured-product.repository';
@@ -139,6 +140,7 @@ const validateItems: Interceptor = async (invocationCtx, next) => {
 };
 
 @authenticate('jwt')
+@authorize({allowedRoles: ['ADMIN', 'SELLER']})
 export class PosController {
   public static ProductsPriceListBindingKey = 'PosController.ProductsPriceListKey';
 
@@ -259,7 +261,7 @@ export class PosController {
     }
 
     if (total > payments) {
-      throw new HttpErrors[400]('Los pagos registrados son menores al total del pedido.');
+      throw new HttpErrors[400](`Los pagos registrados son menores al total del pedido. Pago esperado: ${total.toFixed()}`);
     }
 
     const repo = new DefaultTransactionalRepository(Sale, this.saleRepository.dataSource);

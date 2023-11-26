@@ -1,5 +1,6 @@
 
 import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {inject, service} from '@loopback/core';
 import {repository} from '@loopback/repository';
 import {Request, Response, RestBindings, param, post, requestBody} from '@loopback/rest';
@@ -102,6 +103,7 @@ const schemaProductImport: JSONSchemaType<IProductImportConfig> = {
 }
 
 @authenticate('jwt')
+@authorize({allowedRoles: ['ADMIN']})
 export class ProductImportController {
   constructor(
     @inject(FILE_UPLOAD_SERVICE) private handler: FileUploadHandler,

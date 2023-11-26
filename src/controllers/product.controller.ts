@@ -1,4 +1,5 @@
 import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {Binding, Interceptor, InvocationContext, Next, inject, intercept} from '@loopback/core';
 import {
   DefaultTransactionalRepository,
@@ -88,6 +89,7 @@ export class Sort extends Entity {
 }
 
 @authenticate('jwt')
+@authorize({allowedRoles: ['ADMIN']})
 export class ProductController {
   public static OrganizationBindingKey = 'ProductController.OrganizationKey';
   public static ProductBindingKey = 'ProductController.ProductKey';

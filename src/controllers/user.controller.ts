@@ -12,6 +12,8 @@ import {
   UserRepository,
   UserServiceBindings,
 } from '@loopback/authentication-jwt';
+import {authorize} from '@loopback/authorization';
+
 import {inject} from '@loopback/core';
 import {Entity, model, property, repository} from '@loopback/repository';
 import {
@@ -19,23 +21,20 @@ import {
   getModelSchemaRef,
   post,
   requestBody,
+  RequestContext,
+  RestBindings,
   SchemaObject,
 } from '@loopback/rest';
 import {SecurityBindings, securityId, UserProfile} from '@loopback/security';
 import {genSalt, hash} from 'bcryptjs';
 import _ from 'lodash';
+import {IProfile} from '../models/interfaces';
 import {Profile} from '../models/profile.model';
 import {OrganizationRepository, ProfileRepository, RoleRepository} from '../repositories';
-import {ProfileRoleRepository} from '../repositories/profile_role.repository';
+import {ProfileRoleRepository} from '../repositories/profile-role.repository';
 
 @model()
 export class NewUserRequest extends Entity {
-  @property({
-    type: 'number',
-    required: true,
-  })
-  organizationId: number;
-
   @property({
     type: 'number',
     required: true,
@@ -99,6 +98,7 @@ export class UserController {
     public userService: MyUserService,
     @inject(SecurityBindings.USER, {optional: true})
     public user: UserProfile,
+    @inject(RestBindings.Http.CONTEXT) private requestCtx: RequestContext,
     @repository(UserRepository) protected userRepository: UserRepository,
     @repository(ProfileRepository) protected profileRepository: ProfileRepository,
     @repository(OrganizationRepository) protected organizationRepository: OrganizationRepository,
@@ -130,7 +130,6 @@ export class UserController {
   ): Promise<{token: string}> {
     // ensure the user exists, and the password is correct
     const user = await this.userService.verifyCredentials(credentials);
-
     // convert a User object into a UserProfile object (reduced set of properties)
     const userProfile = this.userService.convertToUserProfile(user);
 
@@ -156,12 +155,16 @@ export class UserController {
   async me(
     @inject(SecurityBindings.USER)
     currentUserProfile: UserProfile,
-  ): Promise<Profile | null> {
+  ): Promise<IProfile | null> {
+    const userRoles = await this.requestCtx.get<string[]>('USER_ROLES');
     return this.profileRepository.find({where: {userId: currentUserProfile[securityId]}})
       .then((profiles: Profile[]) => {
         if (profiles.length) {
           const [profile] = profiles;
-          return profile;
+          return {
+            ...profile.toJSON(),
+            roles: userRoles
+          } as IProfile;
         }
 
         throw new Error('Unable to get profile');
@@ -172,6 +175,7 @@ export class UserController {
       });
   }
 
+  @authenticate('jwt')
   @post('/auth/signup', {
     responses: {
       '200': {
@@ -186,6 +190,7 @@ export class UserController {
       },
     },
   })
+  @authorize({allowedRoles: ['ADMIN']})
   async signUp(
     @requestBody({
       content: {
@@ -198,8 +203,7 @@ export class UserController {
     })
     newUserRequest: NewUserRequest,
   ): Promise<User> {
-
-    const organization = await this.organizationRepository.findById(newUserRequest.organizationId);
+    const organization_id = await this.requestCtx.get<number>('USER_ORGANIZATION_ID');
     const role = await this.roleRepository.findById(newUserRequest.roleId);
 
     const password = await hash(newUserRequest.password, await genSalt());
@@ -214,7 +218,7 @@ export class UserController {
       firstName: newUserRequest.firstName,
       lastName: newUserRequest.lastName,
       status: 1,
-      organizationId: organization.id
+      organizationId: organization_id,
     });
 
     const profileRole = await this.profileRoleRepository.create({

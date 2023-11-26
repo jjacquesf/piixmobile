@@ -1,4 +1,5 @@
 import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {Binding, inject, intercept, Interceptor, InvocationContext, Next} from '@loopback/core';
 import {
   Count,
@@ -85,6 +86,7 @@ const validateProductExistsById: Interceptor = async (invocationCtx, next) => {
 };
 
 @authenticate('jwt')
+@authorize({allowedRoles: ['ADMIN']})
 export class PriceListPriceController {
   public static PriceListBindingKey = 'PriceListPriceController.PriceListKey';
   public static ProductBindingKey = 'ProductPriceController.ProductKey';

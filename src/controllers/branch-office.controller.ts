@@ -1,4 +1,5 @@
 import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {Binding, Interceptor, InvocationContext, Next, inject, intercept} from '@loopback/core';
 import {
   Count,
@@ -166,6 +167,7 @@ export class BranchOfficeController {
   ) { }
 
   @post('/branch-offices')
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validatBranchOfficeUniqueName)
   @response(200, {
     description: 'BranchOffice model instance',
@@ -189,6 +191,7 @@ export class BranchOfficeController {
   }
 
   @get('/branch-offices/count')
+  @authorize({allowedRoles: ['ADMIN']})
   @response(200, {
     description: 'BranchOffice model count',
     content: {'application/json': {schema: CountSchema}},
@@ -237,6 +240,7 @@ export class BranchOfficeController {
     return data;
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validateBranchOfficeExists)
   @get('/branch-offices/{id}')
   @response(200, {
@@ -255,6 +259,7 @@ export class BranchOfficeController {
 
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validateBranchOfficeExists)
   @intercept(validatBranchOfficeUniqueName)
   @patch('/branch-offices/{id}')
@@ -276,6 +281,7 @@ export class BranchOfficeController {
     await this.branchOfficeRepository.updateById(id, branchOffice);
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validateBranchOfficeExists)
   @intercept(validatBranchOfficeUniqueName)
   @put('/branch-offices/{id}')
@@ -296,6 +302,7 @@ export class BranchOfficeController {
     await this.branchOfficeRepository.updateById(id, branchOffice);
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validateNoWarehouses)
   @del('/branch-offices/{id}')
   @response(204, {
@@ -305,6 +312,7 @@ export class BranchOfficeController {
     await this.branchOfficeRepository.deleteById(id);
   }
 
+  @authorize({allowedRoles: ['ADMIN', 'SELLER']})
   @intercept(validateBranchOfficeExists)
   @intercept(validateProductExists)
   @post('/branch-offices/featured-product/{id}/{productId}')
@@ -330,6 +338,7 @@ export class BranchOfficeController {
     return await this.featuredProductRepository.create(data);
   }
 
+  @authorize({allowedRoles: ['ADMIN', 'SELLER']})
   @intercept(validateBranchOfficeExists)
   @intercept(validateProductExists)
   @del('/branch-offices/featured-product/{id}/{productId}')

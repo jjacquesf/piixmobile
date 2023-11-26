@@ -1,5 +1,7 @@
 import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {Binding, inject, intercept, Interceptor} from '@loopback/core';
+
 import {
   Count,
   CountSchema,
@@ -131,6 +133,7 @@ export class WarehouseController {
     public warehouseRepository: WarehouseRepository,
   ) { }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validateBranchOfficeExists)
   @intercept(validateWarehouseUniqueName)
   @post('/warehouses')
@@ -156,6 +159,7 @@ export class WarehouseController {
     return model;
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @get('/warehouses/count')
   @response(200, {
     description: 'Warehouse model count',
@@ -170,6 +174,7 @@ export class WarehouseController {
     });
   }
 
+  @authorize({allowedRoles: ['ADMIN', 'SELLER']})
   @get('/warehouses')
   @response(200, {
     description: 'Array of Warehouse model instances',
@@ -194,6 +199,7 @@ export class WarehouseController {
     });
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validateWarehouseExists)
   @get('/warehouses/{id}')
   @response(200, {
@@ -211,6 +217,7 @@ export class WarehouseController {
     return this.warehouseRepository.findById(id, filter);
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validateWarehouseExists)
   @intercept(validateWarehouseUniqueName)
   @patch('/warehouses/{id}')
@@ -232,6 +239,7 @@ export class WarehouseController {
     await this.warehouseRepository.updateById(id, warehouse);
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validateWarehouseExists)
   @intercept(validateWarehouseUniqueName)
   @put('/warehouses/{id}')
@@ -246,6 +254,7 @@ export class WarehouseController {
     await this.warehouseRepository.replaceById(id, warehouse);
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validateWarehouseExists)
   @del('/warehouses/{id}')
   @response(204, {

@@ -1,5 +1,6 @@
 import {AuthenticationComponent} from '@loopback/authentication';
 import {JWTAuthenticationComponent, UserServiceBindings} from '@loopback/authentication-jwt';
+import {AuthorizationComponent, AuthorizationDecision, AuthorizationOptions, AuthorizationTags} from '@loopback/authorization';
 import {BootMixin} from '@loopback/boot';
 import {ApplicationConfig, BindingScope} from '@loopback/core';
 import {RepositoryMixin} from '@loopback/repository';
@@ -15,6 +16,7 @@ import {DbDataSource} from './datasources';
 import {AuthInterceptor} from './interceptors';
 import {FILE_UPLOAD_SERVICE, STORAGE_DIRECTORY} from './keys';
 import {MySequence} from './sequence';
+import {CustomAuthorizationProviderProvider} from './services';
 
 export {ApplicationConfig};
 
@@ -38,6 +40,7 @@ export class PiixmobileApiApplication extends BootMixin(
 
     // Mount authentication system
     this.component(AuthenticationComponent);
+    this.component(AuthorizationComponent);
     // Mount jwt component
     this.component(JWTAuthenticationComponent);
     // Bind datasource
@@ -59,6 +62,20 @@ export class PiixmobileApiApplication extends BootMixin(
     this.bind(AuthInterceptor.BINDING_KEY)
       .toProvider(AuthInterceptor)
       .inScope(BindingScope.REQUEST);
+
+
+    const authorizationOptions: AuthorizationOptions = {
+      precedence: AuthorizationDecision.DENY,
+      defaultDecision: AuthorizationDecision.DENY,
+    };
+
+    const binding = this.component(AuthorizationComponent);
+    this.configure(binding.key).to(authorizationOptions);
+
+    this
+      .bind(CustomAuthorizationProviderProvider.BindingKey)
+      .toProvider(CustomAuthorizationProviderProvider)
+      .tag(AuthorizationTags.AUTHORIZER);
   }
 
   /**

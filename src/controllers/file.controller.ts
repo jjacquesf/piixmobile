@@ -9,6 +9,7 @@ import {authenticate} from '@loopback/authentication';
 import {inject, service, uuid} from '@loopback/core';
 import {Filter, repository} from '@loopback/repository';
 
+import {authorize} from '@loopback/authorization';
 import {
   HttpErrors,
   Request,
@@ -84,6 +85,7 @@ export class FileController {
   }
 
   @authenticate('jwt')
+  @authorize({allowedRoles: ['ADMIN']})
   @post('/files', {
     responses: {
       200: {

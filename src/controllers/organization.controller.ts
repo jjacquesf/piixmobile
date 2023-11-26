@@ -1,4 +1,5 @@
 import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {
   Count,
   CountSchema,
@@ -12,6 +13,7 @@ import {Organization, OrganizationPayload} from '../models';
 import {OrganizationRepository} from '../repositories';
 
 @authenticate('jwt')
+@authorize({allowedRoles: ['ADMIN']})
 export class OrganizationController {
   constructor(
     @repository(OrganizationRepository)

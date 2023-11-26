@@ -7,7 +7,8 @@ import {repository} from '@loopback/repository';
 import {FindRoute, InvokeMethod, ParseParams, Reject, RequestContext, RestBindings, Send, SequenceHandler} from '@loopback/rest';
 import {securityId} from '@loopback/security';
 import cors from 'cors';
-import {ProfileRepository} from './repositories';
+import {ProfileRepository, RoleRepository} from './repositories';
+import {ProfileRoleRepository} from './repositories/profile-role.repository';
 
 const SequenceActions = RestBindings.SequenceActions;
 
@@ -25,7 +26,9 @@ export class MySequence implements SequenceHandler {
     @inject(SequenceActions.SEND) protected send: Send,
     @inject(SequenceActions.REJECT) protected reject: Reject,
     @inject(AuthenticationBindings.AUTH_ACTION) protected authenticateRequest: AuthenticateFn,
-    @repository(ProfileRepository) protected profileRepository: ProfileRepository
+    @repository(ProfileRepository) protected profileRepository: ProfileRepository,
+    @repository(ProfileRoleRepository) protected profileRoleRepository: ProfileRoleRepository,
+    @repository(RoleRepository) protected roleRepository: RoleRepository,
   ) { }
 
   async handle(context: RequestContext): Promise<void> {
@@ -44,6 +47,20 @@ export class MySequence implements SequenceHandler {
         if (profile?.organizationId != undefined) {
           context.bind('USER_ORGANIZATION_ID').to(profile?.organizationId);
           context.bind('USER_PROFILE_ID').to(profile?.id);
+
+          const profileRoles = await this.profileRoleRepository.find({
+            where: {
+              profileId: profile.id
+            }
+          });
+
+          let roles: string[] = [];
+          for (let index = 0; index < profileRoles.length; index++) {
+            const role = await this.roleRepository.findById(profileRoles[index].roleId);
+            roles.push(role.name);
+          }
+
+          context.bind('USER_ROLES').to(roles);
         }
       }
       const args = await this.parseParams(request, route);

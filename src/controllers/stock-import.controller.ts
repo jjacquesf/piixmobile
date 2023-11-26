@@ -1,5 +1,6 @@
 
 import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {inject, service} from '@loopback/core';
 import {repository} from '@loopback/repository';
 import {Request, RequestContext, Response, RestBindings, post, requestBody} from '@loopback/rest';
@@ -73,6 +74,7 @@ const schemaStockImport: JSONSchemaType<IStockImportConfig> = {
 }
 
 @authenticate('jwt')
+@authorize({allowedRoles: ['ADMIN']})
 export class StockImportController {
   constructor(
     @inject(RestBindings.Http.CONTEXT) private requestCtx: RequestContext,
