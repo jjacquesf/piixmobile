@@ -4,7 +4,7 @@ import {ISale, ISaleDiscount, ISaleItem, ISalePayment} from '../interfaces'
 export const schemaSalePayment: JSONSchemaType<ISalePayment> = {
   type: "object",
   properties: {
-    method: {type: "string", enum: ['card', 'cash', 'spei']},
+    method: {type: "string", enum: ['card-debit', 'card-credit', 'cash', 'spei']},
     amount: {type: "number"},
   },
   required: [

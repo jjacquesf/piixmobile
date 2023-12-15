@@ -105,7 +105,7 @@ export class SaleDetails extends Model {
 
   @property({
     type: 'object',
-    required: true,
+    // required: true,
   })
   discount?: SaleDiscount;
 
