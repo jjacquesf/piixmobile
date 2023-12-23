@@ -48,7 +48,6 @@ const validatePriceListExists: Interceptor = async (invocationCtx, next) => {
 };
 
 @authenticate('jwt')
-@authorize({allowedRoles: ['ADMIN']})
 export class PriceListController {
   public static OrganizationBindingKey = 'PriceListController.OrganizationKey';
   public static PriceListBindingKey = 'PriceListController.PriceListKey';
@@ -64,6 +63,7 @@ export class PriceListController {
 
   ) { }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @post('/price-lists')
   @response(200, {
     description: 'PriceList model instance',
@@ -99,6 +99,7 @@ export class PriceListController {
     return res;
   }
 
+  @authorize({allowedRoles: ['ADMIN', 'SELLER']})
   @get('/price-lists')
   @response(200, {
     description: 'Array of PriceList model instances',
@@ -124,6 +125,7 @@ export class PriceListController {
     return this.priceListRepository.find(filter);
   }
 
+  @authorize({allowedRoles: ['ADMIN', 'SELLER']})
   @intercept(validatePriceListExists)
   @get('/price-lists/{id}')
   @response(200, {
@@ -141,6 +143,7 @@ export class PriceListController {
     return this.priceListRepository.findById(id, filter);
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validatePriceListExists)
   @patch('/price-lists/{id}')
   @response(204, {
@@ -173,6 +176,7 @@ export class PriceListController {
     return res;
   }
 
+  @authorize({allowedRoles: ['ADMIN']})
   @intercept(validatePriceListExists)
   @del('/price-lists/{id}')
   @response(204, {
