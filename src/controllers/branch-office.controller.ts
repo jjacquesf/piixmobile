@@ -233,7 +233,7 @@ export class BranchOfficeController {
     for (let i = 0; i < rows.length; i++) {
       data.push({
         ...rows[i].toJSON(),
-        warehouses: await this.branchOfficeRepository.countWarehouses(rows[0])
+        warehouses: await this.branchOfficeRepository.countWarehouses(rows[i])
       } as unknown as IBranchOffice)
     }
 
