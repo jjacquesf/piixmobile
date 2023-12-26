@@ -61,7 +61,7 @@ export class BranchOfficeRepository extends DefaultCrudRepository<
                                                                         FROM
                                                                           warehouse
                                                                         WHERE
-                                                                          warehouse.branch_office_id = 1
+                                                                          warehouse.branch_office_id = ${branchOffice.id || 0}
                                                                         GROUP
                                                                           BY
                                                                               warehouse.branch_office_id`) as unknown as IBranchOfficeWarehouseCount[];
