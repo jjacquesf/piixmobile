@@ -201,6 +201,7 @@ export class ProductController {
       model: payload.model,
       brand: payload.brand,
       color: payload.color,
+      prices: 0
     }
 
     this.response.status(201);
