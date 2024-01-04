@@ -188,9 +188,6 @@ const validatePosSessionByBranchOfficeId: Interceptor = async (invocationCtx, ne
   const result = await next();
   return result;
 };
-
-
-
 @authenticate('jwt')
 @authorize({allowedRoles: ['ADMIN', 'SELLER']})
 export class PosController {
@@ -351,6 +348,26 @@ export class PosController {
 
     await tx.commit();
     return res;
+  }
+
+  @get('/pos/session')
+  @response(200, {
+    description: 'POS Session model instance',
+    content: {'application/json': {schema: getModelSchemaRef(PosSession)}},
+  })
+  async getPosSessionByUser(): Promise<PosSession> {
+    let session = await this.posSessionRepository.findOne({
+      where: {
+        sellerId: this.profileId,
+        status: 'started'
+      }
+    });
+
+    if (session == null) {
+      throw HttpErrors[404]('No hay una sesion de venta abierta para este usuario');
+    }
+
+    return session;
   }
 
   @intercept(validateOpenSession)
