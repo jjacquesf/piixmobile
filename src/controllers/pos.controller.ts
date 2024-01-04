@@ -298,7 +298,7 @@ export class PosController {
     details: SaleDetails,
   ): Promise<Sale> {
     const session = await this.requestCtx.get<PosSession>(PosController.PosSessionBindingKey);
-    0
+
     const priceLists = await this.requestCtx.get<PriceListPrice[]>(PosController.ProductsPriceListBindingKey);
 
     const profileId = await this.requestCtx.get<number>('USER_PROFILE_ID');
