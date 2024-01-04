@@ -4,8 +4,9 @@
 // License text available at https://opensource.org/licenses/MIT
 
 export * from './config.service';
+export * from './custom-authorization-provider.service';
+export * from './excel.service';
 export * from './file-upload.service';
 export * from './s3.service';
-export * from './excel.service';
 export * from './stock-movement.service';
-export * from './custom-authorization-provider.service';
+

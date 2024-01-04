@@ -14,3 +14,4 @@ export * from './price-list-price.repository';
 export * from './price-list.repository';
 export * from './sale.repository';
 
+export * from './pos-session.repository';

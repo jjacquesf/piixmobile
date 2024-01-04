@@ -15,6 +15,13 @@ export class Sale extends Entity {
   @property({
     type: 'number',
     required: true,
+    mysql: {columnName: 'pos_session_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'N', generated: 0},
+  })
+  posSessionId: number;
+
+  @property({
+    type: 'number',
+    required: true,
     mysql: {columnName: 'organization_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'N', generated: 0},
   })
   organizationId: number;

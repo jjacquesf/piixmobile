@@ -1,6 +1,5 @@
 import {authenticate} from '@loopback/authentication';
 import {Binding, Interceptor, inject, intercept, service} from '@loopback/core';
-import {DefaultTransactionalRepository, Filter, WhereBuilder, repository} from '@loopback/repository';
 import {
   HttpErrors,
   RequestContext,
@@ -9,16 +8,18 @@ import {
   getModelSchemaRef,
   param,
   post,
+  put,
   requestBody,
   response
 } from '@loopback/rest';
-import Ajv from 'ajv';
-import {PriceListPrice, Product, Sale, SaleDetails, StockMovementType} from '../models';
-import {IProduct} from '../models/interfaces';
+import {PosSession, PriceListPrice, Product, Sale, SaleDetails, StockMovementType} from '../models';
 
 import {authorize} from '@loopback/authorization';
-import {schemaSaleDetails} from '../models/schemas';
-import {BranchOfficeRepository, PriceListPriceRepository, ProductRepository, SaleRepository, StockCountRepository, WarehouseRepository} from '../repositories';
+import {DefaultTransactionalRepository, Filter, WhereBuilder, repository} from '@loopback/repository';
+import Ajv from 'ajv';
+import {IProduct} from '../models/interfaces';
+import {schemaSaleDetails} from '../models/schemas/sale.schemas';
+import {BranchOfficeRepository, PosSessionRepository, PriceListPriceRepository, ProductRepository, SaleRepository, StockCountRepository, WarehouseRepository} from '../repositories';
 import {FeaturedProductRepository} from '../repositories/featured-product.repository';
 import {StockMovementService} from '../services';
 
@@ -139,15 +140,67 @@ const validateItems: Interceptor = async (invocationCtx, next) => {
   return result;
 };
 
+const validateOpenSession: Interceptor = async (invocationCtx, next) => {
+  const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
+  const branchOfficeId: number = invocationCtx.args[0] || 0;
+  const organizationId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
+  const posSessionRepository = await invocationCtx.get<PosSessionRepository>(PosSessionRepository.BindingKey);
+
+  let session = await posSessionRepository.getStarted(organizationId, branchOfficeId);
+
+  if (session == null) {
+    throw HttpErrors[404]('No hay una sesion de venta abierta para la sucursal especificada.');
+  }
+
+  const binding = Binding
+    .bind<PosSession>(PosController.PosSessionBindingKey)
+    .to(session);
+  reqCtx.add(binding);
+
+  const result = await next();
+  return result;
+};
+
+const validatePosSessionByBranchOfficeId: Interceptor = async (invocationCtx, next) => {
+  const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
+  const details: SaleDetails = invocationCtx.args[0] || {};
+  const organizationId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
+
+  const posSessionRepository = await invocationCtx.get<PosSessionRepository>(PosSessionRepository.BindingKey);
+
+  let session = await posSessionRepository.findOne({
+    where: {
+      organizationId: organizationId,
+      branchOfficeId: details.branchOfficeId,
+      status: 'started'
+    }
+  });
+
+  if (session == null) {
+    throw HttpErrors[404]('No hay una sesion de venta abierta para la sucursal especificada.');
+  }
+
+  const binding = Binding
+    .bind<PosSession>(PosController.PosSessionBindingKey)
+    .to(session);
+  reqCtx.add(binding);
+
+  const result = await next();
+  return result;
+};
+
+
+
 @authenticate('jwt')
 @authorize({allowedRoles: ['ADMIN', 'SELLER']})
 export class PosController {
   public static ProductsPriceListBindingKey = 'PosController.ProductsPriceListKey';
+  public static PosSessionBindingKey = 'PosController.PosSessionKey';
 
   constructor(
     @inject(RestBindings.Http.CONTEXT) private requestCtx: RequestContext,
-    @inject('USER_ORGANIZATION_ID')
-    public organizationId: number,
+    @inject('USER_ORGANIZATION_ID') public organizationId: number,
+    @inject('USER_PROFILE_ID') public profileId: number,
     @repository(ProductRepository)
     public productRepository: ProductRepository,
     @repository(FeaturedProductRepository)
@@ -158,7 +211,9 @@ export class PosController {
     public branchOfficeRepository: BranchOfficeRepository,
     @repository(WarehouseRepository)
     public warehouseRepository: WarehouseRepository,
-    @service(StockMovementService) private stockMovementService: StockMovementService
+    @service(StockMovementService) private stockMovementService: StockMovementService,
+    @repository(PosSessionRepository)
+    public posSessionRepository: PosSessionRepository,
   ) { }
 
   @get('/pos/filter-products')
@@ -218,6 +273,7 @@ export class PosController {
     return data;
   }
 
+  @intercept(validatePosSessionByBranchOfficeId)
   @intercept(validateSaleSchema)
   @intercept(validateDiscount)
   @intercept(validateItems)
@@ -231,13 +287,18 @@ export class PosController {
       content: {
         'application/json': {
           schema: getModelSchemaRef(SaleDetails, {
-            title: 'NewSaleDetails'
+            title: 'NewSaleDetails',
+            exclude: [
+              'posSessionId'
+            ]
           }),
         },
       },
     })
     details: SaleDetails,
   ): Promise<Sale> {
+    const session = await this.requestCtx.get<PosSession>(PosController.PosSessionBindingKey);
+    0
     const priceLists = await this.requestCtx.get<PriceListPrice[]>(PosController.ProductsPriceListBindingKey);
 
     const profileId = await this.requestCtx.get<number>('USER_PROFILE_ID');
@@ -270,6 +331,7 @@ export class PosController {
     const res = await this.saleRepository.create({
       organizationId: this.organizationId,
       branchOfficeId: details.branchOfficeId,
+      posSessionId: session.id,
       details: details,
       total: total,
     }, {transaction: tx});
@@ -289,5 +351,113 @@ export class PosController {
 
     await tx.commit();
     return res;
+  }
+
+  @intercept(validateOpenSession)
+  @get('/pos/session/{branchOfficeId}')
+  @response(200, {
+    description: 'POS Session model instance',
+    content: {'application/json': {schema: getModelSchemaRef(PosSession)}},
+  })
+  async getPosSession(@param.path.number('branchOfficeId') branchOfficeId: number): Promise<PosSession> {
+    return await this.requestCtx.get<PosSession>(PosController.PosSessionBindingKey);
+  }
+
+  @intercept(validateOpenSession)
+  @put('/pos/session/{branchOfficeId}')
+  @response(200, {
+    description: 'POS Session model instance',
+    content: {'application/json': {schema: getModelSchemaRef(PosSession)}},
+  })
+  async updatePosSession(
+    @param.path.number('branchOfficeId') branchOfficeId: number,
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(PosSession, {
+            title: 'NewPosSessionDetails',
+            exclude: [
+              'id',
+              'organizationId',
+              'branchOfficeId',
+              'sellerId',
+              'created',
+              'updated',
+              'closed',
+              'total_qty',
+              'total_amount',
+            ]
+          }),
+        },
+      },
+    })
+    details: Pick<PosSession, 'status' | 'comments'>,
+  ): Promise<PosSession> {
+
+    const session = await this.requestCtx.get<PosSession>(PosController.PosSessionBindingKey);
+
+    const today = (new Date()).toISOString();
+    await this.posSessionRepository.updateById(session.id, {
+      status: details.status,
+      comments: details.comments,
+      updated: today,
+      ...(details.status === "closed" ? {closed: today} : {})
+    });
+
+    return await this.posSessionRepository.findById(session.id);
+  }
+
+  @post('/pos/session')
+  @response(200, {
+    description: 'POS Session model instance',
+    content: {'application/json': {schema: getModelSchemaRef(PosSession)}},
+  })
+  async createPosSession(
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(PosSession, {
+            exclude: [
+              'id',
+              'organizationId',
+              'sellerId',
+              'created',
+              'updated',
+              'closed',
+              'status',
+              'total_qty',
+              'total_amount',
+              'comments',
+            ]
+          }),
+        },
+      },
+    })
+    details: Pick<PosSession, 'branchOfficeId'>,
+  ): Promise<PosSession> {
+    let session = await this.posSessionRepository.findOne({
+      where: {
+        organizationId: this.organizationId,
+        branchOfficeId: details.branchOfficeId,
+        status: 'started'
+      }
+    });
+
+    if (session !== null) {
+      throw HttpErrors[400]('Ya hay una sesion de venta abierta para la sucursal especificada.');
+    }
+    const today = (new Date()).toISOString();
+    session = await this.posSessionRepository.create({
+      organizationId: this.organizationId,
+      branchOfficeId: details.branchOfficeId,
+      sellerId: this.profileId,
+      status: 'started',
+      total_qty: 0,
+      total_amount: 0,
+      created: today,
+      updated: today
+    })
+
+    return session;
   }
 }

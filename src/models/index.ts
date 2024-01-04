@@ -15,3 +15,4 @@ export * from './stock-movement.model';
 export * from './warehouse.model';
 
 export * from './sale-details.model';
+export * from './pos-session.model';

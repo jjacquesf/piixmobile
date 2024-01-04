@@ -3,7 +3,7 @@ import {DefaultCrudRepository, Filter, RepositoryBindings, repository} from '@lo
 import {DbDataSource} from '../datasources';
 import {Media, Organization, Product, ProductRelations} from '../models';
 import {IProduct, IProductMedia, IProductPrice, IProductWarehouseStock} from '../models/interfaces';
-import {S3Service} from '../services';
+import {S3Service} from '../services/s3.service';
 import {MediaRepository} from './media.repository';
 import {OrganizationRepository} from './organization.repository';
 import {PriceListPriceRepository} from './price-list-price.repository';

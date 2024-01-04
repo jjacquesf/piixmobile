@@ -26,7 +26,7 @@ import Ajv, {JSONSchemaType} from 'ajv';
 import {FILE_UPLOAD_SERVICE} from '../keys';
 import {EntityType, Media} from '../models';
 import {MediaRepository, ProductRepository} from '../repositories';
-import {S3Service} from '../services';
+import {S3Service} from '../services/s3.service';
 import {FileUploadHandler, UploadedFiles} from '../types';
 
 

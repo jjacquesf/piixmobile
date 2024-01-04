@@ -3,7 +3,7 @@ import {DefaultCrudRepository, Filter, RepositoryBindings, repository} from '@lo
 import {DbDataSource} from '../datasources';
 import {BranchOffice, BranchOfficeRelations, Organization} from '../models';
 import {IBranchOfficeWarehouseCount} from '../models/interfaces/branch-office.interface';
-import {S3Service} from '../services';
+import {S3Service} from '../services/s3.service';
 import {MediaRepository} from './media.repository';
 
 export class BranchOfficeRepository extends DefaultCrudRepository<

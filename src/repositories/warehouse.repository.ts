@@ -2,7 +2,8 @@ import {inject, service} from '@loopback/core';
 import {DefaultCrudRepository, Filter, RepositoryBindings, repository} from '@loopback/repository';
 import {DbDataSource} from '../datasources';
 import {BranchOffice, Organization, Warehouse, WarehouseRelations} from '../models';
-import {S3Service} from '../services';
+
+import {S3Service} from '../services/s3.service';
 import {MediaRepository} from './media.repository';
 
 export class WarehouseRepository extends DefaultCrudRepository<

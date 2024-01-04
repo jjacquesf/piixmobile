@@ -88,6 +88,12 @@ export class SaleDetails extends Model {
     type: 'number',
     required: true,
   })
+  posSessionId: number;
+
+  @property({
+    type: 'number',
+    required: true,
+  })
   branchOfficeId: number;
 
   @property({
