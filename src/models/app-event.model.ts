@@ -1,4 +1,7 @@
 import {Entity, model, property} from '@loopback/repository';
+import {IProduct} from './interfaces';
+import {IAppEvent} from './interfaces/app-event.interface';
+import {Product} from './product.model';
 import {AppEventType} from './types/app-event.types';
 
 @model({
@@ -76,6 +79,25 @@ export class AppEvent extends Entity {
 
   constructor(data?: Partial<AppEvent>) {
     super(data);
+  }
+
+  public static expand(model: AppEvent, product: Product | null): IAppEvent {
+    return {
+      id: model.id,
+      organizationId: model.organizationId,
+      profileId: model.profileId,
+      type: model.type,
+      branchOfficeId: model.branchOfficeId,
+      posSessionId: model.posSessionId,
+      ...(product !== null ? {
+        product: {
+          ...product.toJSON(),
+        } as IProduct
+      } : {}),
+      comments: model.comments,
+      created: model.created,
+      updated: model.updated,
+    } as IAppEvent;
   }
 }
 

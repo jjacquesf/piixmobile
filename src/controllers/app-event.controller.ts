@@ -21,6 +21,7 @@ import {authenticate} from '@loopback/authentication';
 import {authorize} from '@loopback/authorization';
 
 import {AppEvent, PosSession, Product} from '../models';
+import {IAppEvent} from '../models/interfaces/app-event.interface';
 import {AppEventRepository, PosSessionRepository, ProductRepository} from '../repositories';
 
 const validatePosSessionId: Interceptor = async (invocationCtx, next) => {
@@ -96,8 +97,8 @@ export class AppEventController {
     @inject(RestBindings.Http.CONTEXT) private requestCtx: RequestContext,
     @inject('USER_ORGANIZATION_ID') public organizationId: number,
     @inject('USER_PROFILE_ID') public profileId: number,
-    @repository(AppEventRepository)
-    public appEventRepository: AppEventRepository,
+    @repository(AppEventRepository) public appEventRepository: AppEventRepository,
+    @repository(ProductRepository) public productRepository: ProductRepository,
   ) { }
 
   @intercept(validatePosSessionId)
@@ -137,18 +138,6 @@ export class AppEventController {
     try {session = await this.requestCtx.get<PosSession>(AppEventController.PosSessionBindingKey);} catch (error) { }
 
     const today = (new Date()).toISOString();
-    console.log(session)
-    console.log({
-      ...appEvent,
-      ...(session !== undefined ? {
-        posSessionId: session.id,
-        branchOfficeId: session.branchOfficeId
-      } : {}),
-      organizationId: this.organizationId,
-      profileId: this.profileId,
-      created: today,
-      updated: today,
-    })
     return this.appEventRepository.create({
       ...appEvent,
       ...(session !== undefined ? {
@@ -177,7 +166,13 @@ export class AppEventController {
   })
   async find(
     @param.filter(AppEvent) filter?: Filter<AppEvent>,
-  ): Promise<AppEvent[]> {
-    return this.appEventRepository.find(filter);
+  ): Promise<IAppEvent[]> {
+    const models = await this.appEventRepository.find(filter);
+    let data: IAppEvent[] = [];
+    for (let i = 0; i < models.length; i++) {
+      const tmp = await this.productRepository.findById(models[i].id);
+      data.push(AppEvent.expand(models[i], tmp));
+    }
+    return data;
   }
 }
