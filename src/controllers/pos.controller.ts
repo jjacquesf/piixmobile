@@ -367,6 +367,12 @@ export class PosController {
       throw HttpErrors[404]('No hay una sesion de venta abierta para este usuario');
     }
 
+    session = await this.posSessionRepository.getStarted(session.organizationId, session.branchOfficeId);
+
+    if (session == null) {
+      throw HttpErrors[404]('No hay una sesion de venta abierta para este usuario');
+    }
+
     return session;
   }
 
