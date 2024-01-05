@@ -91,6 +91,7 @@ export class PosSession extends Entity {
 
   @property({
     type: 'string',
+    mysql: {columnName: 'comments', dataType: 'text', dataPrecision: null, dataScale: null, nullable: 'Y', generated: 0},
   })
   comments?: string;
 

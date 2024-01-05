@@ -15,3 +15,4 @@ export * from './price-list.repository';
 export * from './sale.repository';
 
 export * from './pos-session.repository';
+export * from './app-event.repository';

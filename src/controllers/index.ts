@@ -12,3 +12,4 @@ export * from './price-list-price.controller';
 export * from './price-list.controller';
 
 export * from './role.controller';
+export * from './app-event.controller';

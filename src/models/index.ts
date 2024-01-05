@@ -16,3 +16,4 @@ export * from './warehouse.model';
 
 export * from './sale-details.model';
 export * from './pos-session.model';
+export * from './app-event.model';
