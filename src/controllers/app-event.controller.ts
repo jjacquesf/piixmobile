@@ -5,6 +5,7 @@ import {
 } from '@loopback/repository';
 import {
   HttpErrors,
+  RequestContext,
   RestBindings,
   get,
   getModelSchemaRef,
@@ -19,16 +20,17 @@ import _ from 'lodash';
 import {authenticate} from '@loopback/authentication';
 import {authorize} from '@loopback/authorization';
 
-import {AppEvent, BranchOffice, PosSession, Product} from '../models';
-import {AppEventRepository, BranchOfficeRepository, PosSessionRepository, ProductRepository} from '../repositories';
+import {AppEvent, PosSession, Product} from '../models';
+import {AppEventRepository, PosSessionRepository, ProductRepository} from '../repositories';
 
 const validatePosSessionId: Interceptor = async (invocationCtx, next) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
-  const data: Omit<AppEvent, 'id' | 'organizationId'> = invocationCtx.args[0] || 0;
+  const data: Omit<AppEvent, 'id' | 'organizationId' | 'branchOfficeId' | 'profileId' | 'created' | 'updated'> = invocationCtx.args[0] || 0;
   const organizationId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
   const posSessionRepository = await invocationCtx.get<PosSessionRepository>(PosSessionRepository.BindingKey);
 
-  if (!_.isNil(data.posSessionId)) {
+
+  if (_.isNil(data.posSessionId)) {
     return await next();
   }
 
@@ -51,42 +53,17 @@ const validatePosSessionId: Interceptor = async (invocationCtx, next) => {
   return await next();
 };
 
-const validateBranchOfficeId: Interceptor = async (invocationCtx, next) => {
-  const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
-  const data: Omit<AppEvent, 'id' | 'organizationId'> = invocationCtx.args[0] || 0;
-  const organizationId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
-  const branchOfficeRepository = await invocationCtx.get<BranchOfficeRepository>(BranchOfficeRepository.BindingKey);
-
-  if (!_.isNil(data.branchOfficeId)) {
-    return await next();
-  }
-
-  let model = await branchOfficeRepository.findOne({
-    where: {
-      organizationId: organizationId,
-      id: data.branchOfficeId,
-    }
-  })
-
-  if (model == null) {
-    throw HttpErrors[404]('La sucursal especificada no existe en la organizacion.');
-  }
-
-  const binding = Binding
-    .bind<BranchOffice>(AppEventController.BranchOfficeBindingKey)
-    .to(model);
-  reqCtx.add(binding);
-
-  return await next();
-};
-
 const validateProductId: Interceptor = async (invocationCtx, next) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
   const data: Omit<AppEvent, 'id' | 'organizationId'> = invocationCtx.args[0] || 0;
   const organizationId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
   const productRepository = await invocationCtx.get<ProductRepository>(ProductRepository.BindingKey);
 
-  if (!_.isNil(data.productId)) {
+  if (_.isNil(data.productId) && data.type === 'NO_STOCK') {
+    throw HttpErrors[400]('El producto es requerido para eventos de stock.');
+  }
+
+  if (_.isNil(data.productId)) {
     return await next();
   }
 
@@ -116,13 +93,13 @@ export class AppEventController {
   public static ProductBindingKey = 'AppEventController.Product';
 
   constructor(
+    @inject(RestBindings.Http.CONTEXT) private requestCtx: RequestContext,
     @inject('USER_ORGANIZATION_ID') public organizationId: number,
     @inject('USER_PROFILE_ID') public profileId: number,
     @repository(AppEventRepository)
     public appEventRepository: AppEventRepository,
   ) { }
 
-  @intercept(validateBranchOfficeId)
   @intercept(validatePosSessionId)
   @intercept(validateProductId)
   @post('/app-events')
@@ -134,6 +111,7 @@ export class AppEventController {
           exclude: [
             'id',
             'organizationId',
+            'branchOfficeId',
             'profileId',
             'created',
             'updated',
@@ -148,16 +126,35 @@ export class AppEventController {
         'application/json': {
           schema: getModelSchemaRef(AppEvent, {
             title: 'NewAppEvent',
-            exclude: ['id', 'organizationId', 'profileId', 'created', 'updated'],
+            exclude: ['id', 'organizationId', 'branchOfficeId', 'profileId', 'created', 'updated'],
           }),
         },
       },
     })
-    appEvent: Omit<AppEvent, 'id' | 'organizationId' | 'profileId' | 'created' | 'updated'>,
+    appEvent: Omit<AppEvent, 'id' | 'organizationId' | 'branchOfficeId' | 'profileId' | 'created' | 'updated'>,
   ): Promise<AppEvent> {
+    let session: PosSession | undefined = undefined;
+    try {session = await this.requestCtx.get<PosSession>(AppEventController.PosSessionBindingKey);} catch (error) { }
+
     const today = (new Date()).toISOString();
+    console.log(session)
+    console.log({
+      ...appEvent,
+      ...(session !== undefined ? {
+        posSessionId: session.id,
+        branchOfficeId: session.branchOfficeId
+      } : {}),
+      organizationId: this.organizationId,
+      profileId: this.profileId,
+      created: today,
+      updated: today,
+    })
     return this.appEventRepository.create({
       ...appEvent,
+      ...(session !== undefined ? {
+        posSessionId: session.id,
+        branchOfficeId: session.branchOfficeId
+      } : {}),
       organizationId: this.organizationId,
       profileId: this.profileId,
       created: today,

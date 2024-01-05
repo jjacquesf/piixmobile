@@ -21,13 +21,6 @@ export class AppEvent extends Entity {
   organizationId: number;
 
   @property({
-    type: 'number',
-    required: true,
-    mysql: {columnName: 'branch_office_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'Y', generated: 0},
-  })
-  branchOfficeId?: number;
-
-  @property({
     type: 'string',
     required: true,
     jsonSchema: {nullable: false},
@@ -42,6 +35,12 @@ export class AppEvent extends Entity {
     required: true,
   })
   type: AppEventType;
+
+  @property({
+    type: 'number',
+    mysql: {columnName: 'branch_office_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'Y', generated: 0},
+  })
+  branchOfficeId?: number;
 
   @property({
     type: 'number',
