@@ -143,13 +143,14 @@ const validateItems: Interceptor = async (invocationCtx, next) => {
 const validateOpenSession: Interceptor = async (invocationCtx, next) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
   const branchOfficeId: number = invocationCtx.args[0] || 0;
+  const profileId = await invocationCtx.get<number>('USER_PROFILE_ID');
   const organizationId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
   const posSessionRepository = await invocationCtx.get<PosSessionRepository>(PosSessionRepository.BindingKey);
 
-  let session = await posSessionRepository.getStarted(organizationId, branchOfficeId);
+  let session = await posSessionRepository.getStarted(organizationId, profileId);
 
   if (session == null) {
-    throw HttpErrors[404]('No hay una sesion de venta abierta para la sucursal especificada.');
+    throw HttpErrors[404]('No hay una sesion de venta abierta por este usuario.');
   }
 
   const binding = Binding
@@ -161,9 +162,10 @@ const validateOpenSession: Interceptor = async (invocationCtx, next) => {
   return result;
 };
 
-const validatePosSessionByBranchOfficeId: Interceptor = async (invocationCtx, next) => {
+const validatePosSessionByProfileId: Interceptor = async (invocationCtx, next) => {
   const reqCtx = await invocationCtx.get(RestBindings.Http.CONTEXT);
-  const details: SaleDetails = invocationCtx.args[0] || {};
+  // const details: SaleDetails = invocationCtx.args[0] || {};
+  const profileId = await invocationCtx.get<number>('USER_PROFILE_ID');
   const organizationId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
 
   const posSessionRepository = await invocationCtx.get<PosSessionRepository>(PosSessionRepository.BindingKey);
@@ -171,13 +173,13 @@ const validatePosSessionByBranchOfficeId: Interceptor = async (invocationCtx, ne
   let session = await posSessionRepository.findOne({
     where: {
       organizationId: organizationId,
-      branchOfficeId: details.branchOfficeId,
+      sellerId: profileId,
       status: 'started'
     }
   });
 
   if (session == null) {
-    throw HttpErrors[404]('No hay una sesion de venta abierta para la sucursal especificada.');
+    throw HttpErrors[404]('No hay una sesion de venta abierta por este usuario.');
   }
 
   const binding = Binding
@@ -274,7 +276,7 @@ export class PosController {
     return data;
   }
 
-  @intercept(validatePosSessionByBranchOfficeId)
+  @intercept(validatePosSessionByProfileId)
   @intercept(validateSaleSchema)
   @intercept(validateDiscount)
   @intercept(validateItems)
@@ -354,25 +356,74 @@ export class PosController {
     return res;
   }
 
+  @post('/pos/session')
+  @response(200, {
+    description: 'POS Session model instance',
+    content: {'application/json': {schema: getModelSchemaRef(PosSession)}},
+  })
+  async createPosSession(
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(PosSession, {
+            exclude: [
+              'id',
+              'organizationId',
+              'sellerId',
+              'created',
+              'updated',
+              'closed',
+              'status',
+              'total_qty',
+              'total_amount',
+              'comments',
+            ]
+          }),
+        },
+      },
+    })
+    details: Pick<PosSession, 'branchOfficeId'>,
+  ): Promise<PosSession> {
+    let session = await this.posSessionRepository.findOne({
+      where: {
+        organizationId: this.organizationId,
+        sellerId: this.profileId,
+        status: 'started'
+      }
+    });
+
+    if (session !== null) {
+      throw HttpErrors[400]('Ya hay una sesion de venta abierta por este usuario.');
+    }
+    const today = (new Date()).toISOString();
+    session = await this.posSessionRepository.create({
+      organizationId: this.organizationId,
+      branchOfficeId: details.branchOfficeId,
+      sellerId: this.profileId,
+      status: 'started',
+      total_qty: 0,
+      total_amount: 0,
+      created: today,
+      updated: today
+    })
+
+    return session;
+  }
+
+  @intercept(validatePosSessionByProfileId)
   @get('/pos/session')
   @response(200, {
     description: 'POS Session model instance',
     content: {'application/json': {schema: getModelSchemaRef(PosSession)}},
   })
   async getPosSessionByUser(): Promise<PosSession> {
-    let session = await this.posSessionRepository.findOne({
-      where: {
-        sellerId: this.profileId,
-        status: 'started'
-      }
-    });
+    let session: PosSession | null = await this.requestCtx.get<PosSession>(PosController.PosSessionBindingKey);
 
     if (session == null) {
       throw HttpErrors[404]('No hay una sesion de venta abierta para este usuario');
     }
 
-    session = await this.posSessionRepository.getStarted(session.organizationId, session.branchOfficeId);
-
+    session = await this.posSessionRepository.getStarted(session.organizationId, session.sellerId);
     if (session == null) {
       throw HttpErrors[404]('No hay una sesion de venta abierta para este usuario');
     }
@@ -381,23 +432,12 @@ export class PosController {
   }
 
   @intercept(validateOpenSession)
-  @get('/pos/session/{branchOfficeId}')
-  @response(200, {
-    description: 'POS Session model instance',
-    content: {'application/json': {schema: getModelSchemaRef(PosSession)}},
-  })
-  async getPosSession(@param.path.number('branchOfficeId') branchOfficeId: number): Promise<PosSession> {
-    return await this.requestCtx.get<PosSession>(PosController.PosSessionBindingKey);
-  }
-
-  @intercept(validateOpenSession)
-  @put('/pos/session/{branchOfficeId}')
+  @put('/pos/session')
   @response(200, {
     description: 'POS Session model instance',
     content: {'application/json': {schema: getModelSchemaRef(PosSession)}},
   })
   async updatePosSession(
-    @param.path.number('branchOfficeId') branchOfficeId: number,
     @requestBody({
       content: {
         'application/json': {
@@ -434,57 +474,4 @@ export class PosController {
     return await this.posSessionRepository.findById(session.id);
   }
 
-  @post('/pos/session')
-  @response(200, {
-    description: 'POS Session model instance',
-    content: {'application/json': {schema: getModelSchemaRef(PosSession)}},
-  })
-  async createPosSession(
-    @requestBody({
-      content: {
-        'application/json': {
-          schema: getModelSchemaRef(PosSession, {
-            exclude: [
-              'id',
-              'organizationId',
-              'sellerId',
-              'created',
-              'updated',
-              'closed',
-              'status',
-              'total_qty',
-              'total_amount',
-              'comments',
-            ]
-          }),
-        },
-      },
-    })
-    details: Pick<PosSession, 'branchOfficeId'>,
-  ): Promise<PosSession> {
-    let session = await this.posSessionRepository.findOne({
-      where: {
-        organizationId: this.organizationId,
-        branchOfficeId: details.branchOfficeId,
-        status: 'started'
-      }
-    });
-
-    if (session !== null) {
-      throw HttpErrors[400]('Ya hay una sesion de venta abierta para la sucursal especificada.');
-    }
-    const today = (new Date()).toISOString();
-    session = await this.posSessionRepository.create({
-      organizationId: this.organizationId,
-      branchOfficeId: details.branchOfficeId,
-      sellerId: this.profileId,
-      status: 'started',
-      total_qty: 0,
-      total_amount: 0,
-      created: today,
-      updated: today
-    })
-
-    return session;
-  }
 }

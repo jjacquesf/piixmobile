@@ -17,11 +17,11 @@ export class PosSessionRepository extends DefaultCrudRepository<
     super(PosSession, dataSource);
   }
 
-  public async getStarted(organizationId: number, branchOfficeId: number): Promise<PosSession | null> {
+  public async getStarted(organizationId: number, sellerId: number): Promise<PosSession | null> {
     let session = await this.findOne({
       where: {
         organizationId: organizationId,
-        branchOfficeId: branchOfficeId,
+        sellerId: sellerId,
         status: 'started'
       }
     });
@@ -63,7 +63,7 @@ export class PosSessionRepository extends DefaultCrudRepository<
       session = await this.findOne({
         where: {
           organizationId: organizationId,
-          branchOfficeId: branchOfficeId,
+          sellerId: sellerId,
           status: 'started'
         }
       });
