@@ -249,6 +249,10 @@ export class PosController {
     whereBuilder
       .and(domain, {
         or: [
+          {brand: {like: query}},
+          {color: {like: query}},
+          {model: {like: query}},
+          {sku: {like: query}},
           {internalName: {like: query}},
           {externalName: {like: query}},
         ]
