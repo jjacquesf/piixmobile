@@ -30,17 +30,23 @@ export const schemaSaleItem: JSONSchemaType<ISaleItem> = {
   type: "object",
   properties: {
     productId: {type: "number"},
+    price: {type: "number"},
+    productName: {type: "string", minLength: 1},
     branchOfficeId: {type: "number"},
     warehouseId: {type: "number"},
     qty: {type: "number"},
     priceListId: {type: "number"},
+    isCommon: {type: "boolean"},
   },
   required: [
     'productId',
+    'price',
+    'productName',
     'branchOfficeId',
     'warehouseId',
     'qty',
     'priceListId',
+    'isCommon',
   ]
 }
 

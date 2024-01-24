@@ -2,10 +2,13 @@ import {DiscountType, PaymentMethod} from '../types';
 
 export interface ISaleItem {
   productId: number;
+  productName: string;
+  price: number;
   branchOfficeId: number;
   warehouseId: number;
   qty: number;
   priceListId: number;
+  isCommon: boolean;
 }
 
 export interface ISaleDiscount {

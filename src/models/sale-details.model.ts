@@ -13,6 +13,12 @@ export class SaleItem extends Model {
     type: 'number',
     required: true,
   })
+  productName: string;
+
+  @property({
+    type: 'number',
+    required: true,
+  })
   branchOfficeId: number;
 
   @property({
@@ -38,6 +44,12 @@ export class SaleItem extends Model {
     required: true,
   })
   price: number;
+
+  @property({
+    type: 'boolean',
+    required: true,
+  })
+  isCommon: boolean;
 
   constructor(data?: Partial<SaleDetails>) {
     super(data);

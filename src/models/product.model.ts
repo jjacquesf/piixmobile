@@ -128,6 +128,17 @@ export class Product extends Entity {
   })
   prices: number;
 
+  @property({
+    type: 'number',
+    required: true,
+    jsonSchema: {nullable: false},
+    precision: 3,
+    scale: 0,
+    generated: 0,
+    mysql: {columnName: 'is_common', dataType: 'tinyint', dataLength: null, dataPrecision: 3, dataScale: 0, nullable: 'N', generated: 0},
+  })
+  isCommon: boolean;
+
   // Define well-known properties here
 
   // Indexer property to allow additional data

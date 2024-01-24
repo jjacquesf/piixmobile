@@ -201,7 +201,8 @@ export class ProductController {
       model: payload.model,
       brand: payload.brand,
       color: payload.color,
-      prices: 0
+      prices: 0,
+      isCommon: payload.isCommon != undefined ? payload.isCommon : false
     }
 
     this.response.status(201);

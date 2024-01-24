@@ -12,7 +12,7 @@ import {
   requestBody,
   response
 } from '@loopback/rest';
-import {PosSession, PriceListPrice, Product, Sale, SaleDetails, StockMovementType} from '../models';
+import {PosSession, Product, Sale, SaleDetails, StockMovementType} from '../models';
 
 import {authorize} from '@loopback/authorization';
 import {DefaultTransactionalRepository, Filter, WhereBuilder, repository} from '@loopback/repository';
@@ -55,7 +55,7 @@ const validateItems: Interceptor = async (invocationCtx, next) => {
   const warehouseOfficeRepo = await invocationCtx.get<WarehouseRepository>(WarehouseRepository.BindingKey);
   const stockCountRepo = await invocationCtx.get<StockCountRepository>(StockCountRepository.BindingKey);
   const priceRepo = await invocationCtx.get<PriceListPriceRepository>(PriceListPriceRepository.BindingKey);
-
+  const productRepo = await invocationCtx.get<ProductRepository>(ProductRepository.BindingKey);
 
   if (details.items.length == 0) {
     throw HttpErrors[400]('La venta requiere al menos un articulo.');
@@ -79,7 +79,7 @@ const validateItems: Interceptor = async (invocationCtx, next) => {
     throw HttpErrors[400]('El almacen especificado no pertenece a la sucursal selecionada.');
   }
 
-  let priceLists: PriceListPrice[] = [];
+  // let priceLists: PriceListPrice[] = [];
 
   for (let index = 0; index < details.items.length; index++) {
     if (details.items[index].branchOfficeId != details.branchOfficeId) {
@@ -101,39 +101,66 @@ const validateItems: Interceptor = async (invocationCtx, next) => {
       throw HttpErrors[400](`La cantidad debe ser mayor a cero en la linea ${index + 1}.`);
     }
 
-    // Validate item product stock
-    const tmp3 = await stockCountRepo.findOne({
+    // Validate product type
+    const product = await productRepo.findOne({
       where: {
         organizationId: organizationId,
-        warehouseId: details.items[index].warehouseId,
-        productId: details.items[index].productId,
+        id: details.items[index].productId,
       }
     });
 
-    if (tmp3 == null || tmp3.stock < details.items[index].qty) {
-      throw HttpErrors[400](`No hay existencias suficientes para el produco en la linea ${index + 1}.`);
+    if (product == null) {
+      throw HttpErrors[400](`No existe el producto en la linea ${index + 1}.`);
     }
 
-    // Validate price list price
-    const tmp4 = await priceRepo.findOne({
-      where: {
-        organizationId: organizationId,
-        priceListId: details.items[index].priceListId,
-        productId: details.items[index].productId,
+    details.items[index].isCommon = product.isCommon;
+
+    if (product.isCommon) {
+      if (details.items[index].price <= 0) {
+        throw HttpErrors[400](`El precio debe ser mayor a cero en la linea ${index + 1}.`);
       }
-    });
-
-    if (tmp4 == null) {
-      throw HttpErrors[400](`No hay un precio registrado para el producto en la linea ${index + 1}.`);
     }
 
-    // Register pricelist price
-    priceLists.push(tmp4);
+    if (!product.isCommon) {
+      // Validate item product stock
+      const tmp3 = await stockCountRepo.findOne({
+        where: {
+          organizationId: organizationId,
+          warehouseId: details.items[index].warehouseId,
+          productId: details.items[index].productId,
+        }
+      });
+
+      if (tmp3 == null || tmp3.stock < details.items[index].qty) {
+        throw HttpErrors[400](`No hay existencias suficientes para el producto en la linea ${index + 1}.`);
+      }
+
+      // Validate price list price
+      const tmp4 = await priceRepo.findOne({
+        where: {
+          organizationId: organizationId,
+          priceListId: details.items[index].priceListId,
+          productId: details.items[index].productId,
+        }
+      });
+
+      if (tmp4 == null) {
+        throw HttpErrors[400](`No hay un precio registrado para el producto en la linea ${index + 1}.`);
+      }
+
+      // Set product price and name
+      details.items[index].price = tmp4.price;
+      details.items[index].productName = product.externalName;
+
+      // Register pricelist price
+      // priceLists.push(tmp4);
+    }
   }
 
   const binding = Binding
-    .bind<PriceListPrice[]>(PosController.ProductsPriceListBindingKey)
-    .to(priceLists);
+    .bind<SaleDetails>(PosController.SaleDetailBindingKey)
+    .to(details);
+
   reqCtx.add(binding);
 
   const result = await next();
@@ -193,7 +220,8 @@ const validatePosSessionByProfileId: Interceptor = async (invocationCtx, next) =
 @authenticate('jwt')
 @authorize({allowedRoles: ['ADMIN', 'SELLER']})
 export class PosController {
-  public static ProductsPriceListBindingKey = 'PosController.ProductsPriceListKey';
+  // public static ProductsPriceListBindingKey = 'PosController.ProductsPriceListKey';
+  public static SaleDetailBindingKey = 'PosController.SaleDetailKey';
   public static PosSessionBindingKey = 'PosController.PosSessionKey';
 
   constructor(
@@ -243,13 +271,18 @@ export class PosController {
 
     const domain = {
       organizationId: this.organizationId,
-      prices: {gt: 0},
+      // prices: {gt: 0},
       ...(ids.length != 0 ? {id: {inq: ids}} : {})
     };
 
     const whereBuilder = new WhereBuilder();
     whereBuilder
       .and(domain, {
+        or: [
+          {prices: {gt: 0}},
+          {isCommon: true},
+        ]
+      }, {
         or: [
           {brand: {like: query}},
           {color: {like: query}},
@@ -261,6 +294,7 @@ export class PosController {
       });
 
     const where = whereBuilder.build();
+
     const filter: Filter<Product> = {
       order: ['externalName ASC'],
       where: where
@@ -302,10 +336,11 @@ export class PosController {
   ): Promise<Sale> {
     const session = await this.requestCtx.get<PosSession>(PosController.PosSessionBindingKey);
 
-    const priceLists = await this.requestCtx.get<PriceListPrice[]>(PosController.ProductsPriceListBindingKey);
+    // const priceLists = await this.requestCtx.get<PriceListPrice[]>(PosController.ProductsPriceListBindingKey);
+    // Get validated details
+    details = await this.requestCtx.get<SaleDetails>(PosController.SaleDetailBindingKey);
 
     const profileId = await this.requestCtx.get<number>('USER_PROFILE_ID');
-
 
     if (details.shipping < 0) {
       throw new HttpErrors[400]('El costo de envio no puede ser menor a cero.');
@@ -313,7 +348,7 @@ export class PosController {
 
     let total: number = 0;
     for (let index = 0; index < details.items.length; index++) {
-      details.items[index].price = priceLists[index].price;
+      // details.items[index].price = priceLists[index].price;
       total += details.items[index].qty * details.items[index].price;
     }
 
@@ -340,16 +375,18 @@ export class PosController {
     }, {transaction: tx});
 
     for (let index = 0; index < details.items.length; index++) {
-      await this.stockMovementService.create({
-        profileId: profileId,
-        organizationId: this.organizationId,
-        branchOfficeId: details.items[index].branchOfficeId,
-        warehouseId: details.items[index].warehouseId,
-        productId: details.items[index].productId,
-        type: StockMovementType.OUT,
-        qty: details.items[index].qty,
-        lot: `Venta #${res.id}`,
-      }, tx);
+      if (!details.items[index].isCommon) {
+        await this.stockMovementService.create({
+          profileId: profileId,
+          organizationId: this.organizationId,
+          branchOfficeId: details.items[index].branchOfficeId,
+          warehouseId: details.items[index].warehouseId,
+          productId: details.items[index].productId,
+          type: StockMovementType.OUT,
+          qty: details.items[index].qty,
+          lot: `Venta #${res.id}`,
+        }, tx);
+      }
     }
 
     await tx.commit();
