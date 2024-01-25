@@ -12,7 +12,7 @@ import {
   requestBody,
   response
 } from '@loopback/rest';
-import {PosSession, Product, Sale, SaleDetails, StockMovementType} from '../models';
+import {PosSession, PosSessionDetail, Product, Sale, SaleDetails, StockMovementType} from '../models';
 
 import {authorize} from '@loopback/authorization';
 import {DefaultTransactionalRepository, Filter, WhereBuilder, repository} from '@loopback/repository';
@@ -196,6 +196,7 @@ const validatePosSessionByProfileId: Interceptor = async (invocationCtx, next) =
   const organizationId = await invocationCtx.get<number>('USER_ORGANIZATION_ID');
 
   const posSessionRepository = await invocationCtx.get<PosSessionRepository>(PosSessionRepository.BindingKey);
+  const saleRepository = await invocationCtx.get<SaleRepository>(SaleRepository.BindingKey);
 
   let session = await posSessionRepository.findOne({
     where: {
@@ -214,6 +215,16 @@ const validatePosSessionByProfileId: Interceptor = async (invocationCtx, next) =
     .to(session);
   reqCtx.add(binding);
 
+
+
+  let sales: Sale[] = await saleRepository.find({where: {posSessionId: session.id}});
+  const binding2 = Binding
+    .bind<Sale[]>(PosController.SaleBindingKey)
+    .to(sales);
+
+  reqCtx.add(binding);
+  reqCtx.add(binding2);
+
   const result = await next();
   return result;
 };
@@ -223,6 +234,7 @@ export class PosController {
   // public static ProductsPriceListBindingKey = 'PosController.ProductsPriceListKey';
   public static SaleDetailBindingKey = 'PosController.SaleDetailKey';
   public static PosSessionBindingKey = 'PosController.PosSessionKey';
+  public static SaleBindingKey = 'PosController.SaleBindingKey';
 
   constructor(
     @inject(RestBindings.Http.CONTEXT) private requestCtx: RequestContext,
@@ -453,8 +465,9 @@ export class PosController {
     description: 'POS Session model instance',
     content: {'application/json': {schema: getModelSchemaRef(PosSession)}},
   })
-  async getPosSessionByUser(): Promise<PosSession> {
+  async getPosSessionByUser(): Promise<PosSessionDetail> {
     let session: PosSession | null = await this.requestCtx.get<PosSession>(PosController.PosSessionBindingKey);
+    let sales: Sale[] | [] = await this.requestCtx.get<Sale[]>(PosController.SaleBindingKey);
 
     if (session == null) {
       throw HttpErrors[404]('No hay una sesion de venta abierta para este usuario');
@@ -465,7 +478,12 @@ export class PosController {
       throw HttpErrors[404]('No hay una sesion de venta abierta para este usuario');
     }
 
-    return session;
+    return new PosSessionDetail({
+      session,
+      sales
+    });
+
+    // return session;
   }
 
   @intercept(validateOpenSession)
