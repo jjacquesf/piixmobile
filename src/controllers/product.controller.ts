@@ -256,6 +256,7 @@ export class ProductController {
       model: payload.model != undefined ? payload.model : prod.model,
       brand: payload.brand != undefined ? payload.brand : prod.brand,
       color: payload.color != undefined ? payload.color : prod.color,
+      isCommon: payload.isCommon != undefined ? payload.isCommon : prod.isCommon,
     }
 
     await this.productRepository.updateById(prod.id, model);
@@ -302,6 +303,7 @@ export class ProductController {
       model: payload.model,
       brand: payload.brand,
       color: payload.color,
+      isCommon: payload.isCommon,
     }
 
     await this.productRepository.replaceById(prod.id, model);

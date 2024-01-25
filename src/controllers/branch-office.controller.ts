@@ -26,7 +26,7 @@ import {
 import {AuthInterceptor} from '../interceptors';
 import {BranchOffice, FeaturedProduct, Product} from '../models';
 import {IBranchOffice} from '../models/interfaces/branch-office.interface';
-import {BranchOfficeRepository, ProductRepository, WarehouseRepository} from '../repositories';
+import {BranchOfficeRepository, PosSessionRepository, ProductRepository, WarehouseRepository} from '../repositories';
 import {FeaturedProductRepository} from '../repositories/featured-product.repository';
 
 const _validateBranchOfficeExists = async (invocationCtx: InvocationContext, next: Next, id: number) => {
@@ -164,6 +164,8 @@ export class BranchOfficeController {
     public branchOfficeRepository: BranchOfficeRepository,
     @repository(FeaturedProductRepository)
     public featuredProductRepository: FeaturedProductRepository,
+    @repository(WarehouseRepository) public warehouseRepository: WarehouseRepository,
+    @repository(PosSessionRepository) public posSessionRepository: PosSessionRepository,
   ) { }
 
   @post('/branch-offices')
@@ -309,6 +311,16 @@ export class BranchOfficeController {
     description: 'BranchOffice DELETE success',
   })
   async deleteById(@param.path.number('id') id: number): Promise<void> {
+    const warehouses = await this.warehouseRepository.count({branchOfficeId: id});
+    if (warehouses.count > 0) {
+      throw new HttpErrors[400]('No se puede eliminar la sucursal porque tiene almacenes dependientes');
+    }
+
+    const sessions = await this.posSessionRepository.count({branchOfficeId: id});
+    if (sessions.count > 0) {
+      throw new HttpErrors[400]('No se puede eliminar la sucursal porque tiene ventas registradas');
+    }
+
     await this.branchOfficeRepository.deleteById(id);
   }
 
