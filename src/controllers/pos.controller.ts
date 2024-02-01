@@ -432,7 +432,7 @@ export class PosController {
       },
     })
     details: Pick<PosSession, 'branchOfficeId'>,
-  ): Promise<PosSession> {
+  ): Promise<PosSessionDetail> {
     let session = await this.posSessionRepository.findOne({
       where: {
         organizationId: this.organizationId,
@@ -456,7 +456,10 @@ export class PosController {
       updated: today
     })
 
-    return session;
+    return new PosSessionDetail({
+      session,
+      sales: []
+    });
   }
 
   @intercept(validatePosSessionByProfileId)
