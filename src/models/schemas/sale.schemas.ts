@@ -55,6 +55,7 @@ export const schemaSaleDetails: JSONSchemaType<ISale> = {
   properties: {
     branchOfficeId: {type: "number"},
     warehouseId: {type: "number"},
+    sellerId: {type: "number"},
     items: {
       type: "array",
       items: schemaSaleItem
@@ -69,6 +70,7 @@ export const schemaSaleDetails: JSONSchemaType<ISale> = {
   required: [
     'branchOfficeId',
     'warehouseId',
+    'sellerId',
     'items',
     // 'discount',
     'shipping',

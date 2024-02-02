@@ -24,6 +24,7 @@ export interface ISalePayment {
 export interface ISale {
   branchOfficeId: number;
   warehouseId: number;
+  sellerId: number;
   items: ISaleItem[];
   discount: ISaleDiscount | null;
   shipping: number;

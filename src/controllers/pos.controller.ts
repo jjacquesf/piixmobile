@@ -14,12 +14,13 @@ import {
 } from '@loopback/rest';
 import {PosSession, PosSessionDetail, Product, Sale, SaleDetails, StockMovementType} from '../models';
 
+import {UserRepository} from '@loopback/authentication-jwt';
 import {authorize} from '@loopback/authorization';
 import {DefaultTransactionalRepository, Filter, WhereBuilder, repository} from '@loopback/repository';
 import Ajv from 'ajv';
 import {IProduct} from '../models/interfaces';
 import {schemaSaleDetails} from '../models/schemas/sale.schemas';
-import {BranchOfficeRepository, PosSessionRepository, PriceListPriceRepository, ProductRepository, SaleRepository, StockCountRepository, WarehouseRepository} from '../repositories';
+import {BranchOfficeRepository, PosSessionRepository, PriceListPriceRepository, ProductRepository, ProfileRepository, SaleRepository, StockCountRepository, WarehouseRepository} from '../repositories';
 import {FeaturedProductRepository} from '../repositories/featured-product.repository';
 import {StockMovementService} from '../services';
 
@@ -253,6 +254,9 @@ export class PosController {
     @service(StockMovementService) private stockMovementService: StockMovementService,
     @repository(PosSessionRepository)
     public posSessionRepository: PosSessionRepository,
+    @repository(ProfileRepository)
+    public profileRepository: ProfileRepository,
+    @repository(UserRepository) protected userRepository: UserRepository,
   ) { }
 
   @get('/pos/filter-products')
@@ -375,6 +379,17 @@ export class PosController {
       throw new HttpErrors[400](`Los pagos registrados son menores al total del pedido. Pago esperado: ${total.toFixed()}`);
     }
 
+    const profile = await this.profileRepository.findOne({
+      where: {
+        id: details.sellerId,
+        status: 1
+      }
+    });
+
+    if (profile == null) {
+      throw new HttpErrors[400](`El vendedor indicado NO existe.`);
+    }
+
     const repo = new DefaultTransactionalRepository(Sale, this.saleRepository.dataSource);
     const tx = await repo.beginTransaction();
 
@@ -382,6 +397,8 @@ export class PosController {
       organizationId: this.organizationId,
       branchOfficeId: details.branchOfficeId,
       posSessionId: session.id,
+      sellerId: details.sellerId,
+      sellerName: `${profile.firstName} ${profile.lastName}`,
       details: details,
       total: total,
     }, {transaction: tx});

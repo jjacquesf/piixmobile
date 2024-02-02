@@ -22,6 +22,23 @@ export class Sale extends Entity {
   @property({
     type: 'number',
     required: true,
+    mysql: {columnName: 'seller_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'N', generated: 0},
+  })
+  sellerId: number;
+
+  @property({
+    type: 'string',
+    required: true,
+    jsonSchema: {nullable: false},
+    length: 50,
+    generated: 0,
+    mysql: {columnName: 'seller_name', dataType: 'varchar', dataLength: 128, dataPrecision: null, dataScale: null, nullable: 'N', generated: 0},
+  })
+  sellerName: string;
+
+  @property({
+    type: 'number',
+    required: true,
     mysql: {columnName: 'organization_id', dataType: 'int', dataLength: null, dataPrecision: 10, dataScale: 0, nullable: 'N', generated: 0},
   })
   organizationId: number;

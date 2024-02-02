@@ -106,6 +106,12 @@ export class SaleDetails extends Model {
     type: 'number',
     required: true,
   })
+  sellerId: number;
+
+  @property({
+    type: 'number',
+    required: true,
+  })
   branchOfficeId: number;
 
   @property({
