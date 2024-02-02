@@ -229,4 +229,49 @@ export class UserController {
 
     return savedUser;
   }
+
+  @authenticate('jwt')
+  @get('/users', {
+    responses: {
+      '200': {
+        description: 'Return current user',
+        content: {
+          'application/json': {
+            schema: Profile,
+          },
+        },
+      },
+    },
+  })
+  async users(
+    @inject(SecurityBindings.USER)
+    currentUserProfile: UserProfile,
+  ): Promise<IProfile[]> {
+
+    let response:IProfile[] = [];
+    const profiles = await this.profileRepository.find({where: {status: 1}});
+    for(let i = 0; i < profiles.length; i++) {
+
+      const profileRoles = await this.profileRoleRepository.find({
+        where: {
+          profileId: profiles[i].id
+        }
+      });
+
+      let roles: string[] = [];
+      for (let index = 0; index < profileRoles.length; index++) {
+        const role = await this.roleRepository.findById(profileRoles[index].roleId);
+        roles.push(role.name);
+      }
+
+      response.push({
+        ...profiles[i].toJSON(),
+        roles: roles
+      } as IProfile);
+
+    }
+
+    return response;
+  }
+
 }
